@@ -1,0 +1,19 @@
+2007-04-20  Hezekiah M. Carty  <hcarty@0ok.org>
+
+	* Basic SDS and Vdata writing is available.
+	* Next step is to move to variant types for all data.
+
+2007-01-29  Hezekiah M. Carty  <hcarty@0ok.org>
+
+	* Cleanups!  And more!
+
+2007-01-29  Hezekiah M. Carty  <hcarty@atmos.umd.edu>
+
+	* Added a SDgetinfo() wrapper.  Returns a tuple.
+
+2007-01-28  Hezekiah M. Carty  <hcarty@atmos.umd.edu>
+
+	* Initial writeup.
+	* Basic SDSdata and Vdata can be read from an HDF file.
+	* XXX - I'm using a #define trick to fix the problem of int32 and friends
+	being defined in both the HDF and OCaml headers.  It will do for now...
