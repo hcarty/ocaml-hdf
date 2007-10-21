@@ -2,6 +2,8 @@
 
 module G = ExtBigarray
 
+include Hdf_wrapper
+
 (** The basic type which encapsulates the HDF data types we can
     support.  These are encapsulated in a variant type to avoid having
     to write explicit cases for every data type within a given HDF4
@@ -645,3 +647,4 @@ struct
       Detach the Vdata interface.
   *)
 end
+

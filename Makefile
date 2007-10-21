@@ -23,6 +23,11 @@ includes:
 	perl touchup.pl hdf_h
 	perl touchup.pl mfhdf_h
 
+interface:
+	ocamlfind ocamlc -package extbigarray -i hdf.ml > hdf.mli
+
+install: all interface libinstall
+
 mrproper: clean
 	rm -f *~ *.cmi *.cmo *.top *.so hdf_h.inc mfhdf_h.inc
 
