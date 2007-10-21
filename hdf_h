@@ -1,0 +1,413 @@
+    typedef enum {
+        DFACC_READ = _DFACC_READ,
+        DFACC_WRITE = _DFACC_WRITE,
+        DFACC_CREATE = _DFACC_CREATE,
+        DFACC_ALL = _DFACC_ALL
+    }
+    access_type;
+
+    typedef enum {
+        AN_UNDEF = -1,  AN_DATA_LABEL = 0,  AN_DATA_DESC,
+        AN_FILE_LABEL,  AN_FILE_DESC
+    }
+    ann_type;
+
+    typedef int32 HFILEID;
+
+    typedef enum {
+        COMP_MODEL_STDIO = 0
+    }
+    comp_model_t;
+
+    typedef enum {
+        COMP_CODE_NONE = 0,  COMP_CODE_RLE,  COMP_CODE_NBIT,  COMP_CODE_SKPHUFF,
+        COMP_CODE_DEFLATE,  COMP_CODE_SZIP,  COMP_CODE_INVALID,  COMP_CODE_JPEG
+    }
+    comp_coder_t;
+
+    typedef enum {
+        DFE_NONE = 0,  DFE_FNF,  DFE_DENIED,  DFE_ALROPEN,  DFE_TOOMANY,
+        DFE_BADNAME,  DFE_BADACC,  DFE_BADOPEN,  DFE_NOTOPEN,  DFE_CANTCLOSE,
+        DFE_READERROR,  DFE_WRITEERROR,  DFE_SEEKERROR,  DFE_RDONLY,  DFE_BADSEEK,
+        DFE_PUTELEM,  DFE_GETELEM,  DFE_CANTLINK,  DFE_CANTSYNC,  DFE_BADGROUP,
+        DFE_GROUPSETUP,  DFE_PUTGROUP,  DFE_GROUPWRITE,  DFE_DFNULL,  DFE_ILLTYPE,
+        DFE_BADDDLIST,  DFE_NOTDFFILE,  DFE_SEEDTWICE,  DFE_NOSUCHTAG,
+        DFE_NOFREEDD,  DFE_BADTAG,  DFE_BADREF,  DFE_NOMATCH,  DFE_NOTINSET,
+        DFE_BADOFFSET,  DFE_CORRUPT,  DFE_NOREF,  DFE_DUPDD,  DFE_CANTMOD,
+        DFE_DIFFFILES,  DFE_BADAID,  DFE_OPENAID,  DFE_CANTFLUSH,  DFE_CANTUPDATE,
+        DFE_CANTHASH,  DFE_CANTDELDD,  DFE_CANTDELHASH,  DFE_CANTACCESS,
+        DFE_CANTENDACCESS,  DFE_TABLEFULL,  DFE_NOTINTABLE,  DFE_UNSUPPORTED,
+        DFE_NOSPACE,  DFE_BADCALL,  DFE_BADPTR,  DFE_BADLEN,  DFE_NOTENOUGH,
+        DFE_NOVALS,  DFE_ARGS,  DFE_INTERNAL,  DFE_NORESET,  DFE_GENAPP,
+        DFE_UNINIT,  DFE_CANTINIT,  DFE_CANTSHUTDOWN,  DFE_BADDIM,  DFE_BADFP,
+        DFE_BADDATATYPE,  DFE_BADMCTYPE,  DFE_BADNUMTYPE,  DFE_BADORDER,
+        DFE_RANGE,  DFE_BADCONV,  DFE_BADTYPE,  DFE_BADSCHEME,  DFE_BADMODEL,
+        DFE_BADCODER,  DFE_MODEL,  DFE_CODER,  DFE_CINIT,  DFE_CDECODE,
+        DFE_CENCODE,  DFE_CTERM,  DFE_CSEEK,  DFE_MINIT,  DFE_COMPINFO,
+        DFE_CANTCOMP,  DFE_CANTDECOMP,  DFE_NOENCODER,  DFE_NODIM,  DFE_BADRIG,
+        DFE_RINOTFOUND,  DFE_BADATTR,  DFE_LUTNOTFOUND,  DFE_BADTABLE,  DFE_BADSDG,
+        DFE_BADNDG,  DFE_VGSIZE,  DFE_VTAB,  DFE_CANTADDELEM,  DFE_BADVGNAME,
+        DFE_BADVGCLASS,  DFE_BADFIELDS,  DFE_NOVS,  DFE_SYMSIZE,  DFE_BADATTACH,
+        DFE_BADVSNAME,  DFE_BADVSCLASS,  DFE_VSWRITE,  DFE_VSREAD,  DFE_BADVH,
+        DFE_FIELDSSET,  DFE_VSCANTCREATE,  DFE_VGCANTCREATE,  DFE_CANTATTACH,
+        DFE_CANTDETACH,  DFE_BITREAD,  DFE_BITWRITE,  DFE_BITSEEK,  DFE_TBBTINS,
+        DFE_BVNEW,  DFE_BVSET,  DFE_BVGET,  DFE_BVFIND
+    }
+    hdf_err_code_t;
+
+    // HDF routines
+    HDF_ID Hopen (const char *path, access_type acc_mode, int16 ndds);
+    HDF_RESULT Hclose (int32 file_id);
+    //int32 Hstartread (int32 file_id, uint16 tag, uint16 ref);
+    //intn Hnextread (int32 access_id, uint16 tag, uint16 ref, intn origin);
+    //intn Hexist (int32 file_id, uint16 search_tag, uint16 search_ref);
+    //intn Hinquire (int32 access_id, int32 * pfile_id, uint16 * ptag,
+    //        uint16 * pref, int32 * plength, int32 * poffset,
+    //        int32 * pposn, int16 * paccess, int16 * pspecial);
+    //int32 Hstartwrite (int32 file_id, uint16 tag, uint16 ref, int32 length);
+    //int32 Hstartaccess (int32 file_id, uint16 tag, uint16 ref, uint32 flags);
+    //intn Hsetlength (int32 file_id, int32 length);
+    //intn Happendable (int32 aid);
+    //intn HPisappendable (int32 aid);
+    //intn Hseek (int32 access_id, int32 offset, intn origin);
+    //int32 Htell (int32 access_id);
+
+    //int32 Hread (int32 access_id, int32 length, void *data);
+    //int32 Hwrite (int32 access_id, int32 length, const void *data);
+
+    //int32 Htrunc (int32 access_id, int32 trunc_len);
+    //intn Hendaccess (int32 access_id);
+    //intn HDgetc (int32 access_id);
+    //intn HDputc (uint8 c, int32 access_id);
+    //int32 Hgetelement (int32 file_id, uint16 tag, uint16 ref, uint8 * data);
+    //int32 Hputelement (int32 file_id, uint16 tag, uint16 ref,
+    //        const uint8 * data, int32 length);
+    //int32 Hlength (int32 file_id, uint16 tag, uint16 ref);
+    //int32 Hoffset (int32 file_id, uint16 tag, uint16 ref);
+    //intn Hsync (int32 file_id);
+    //intn Hcache (int32 file_id, intn cache_on);
+    //intn Hgetlibversion (uint32 * majorv, uint32 * minorv,
+    //        uint32 * releasev, char *string);
+    //intn Hgetfileversion (int32 file_id, uint32 * majorv, uint32 * minorv,
+    //        uint32 * release, char *string);
+    //intn Hsetaccesstype (int32 access_id, uintn accesstype);
+
+    //uint16 HDmake_special_tag (uint16 tag);
+    //intn HDis_special_tag (uint16 tag);
+    //uint16 HDbase_tag (uint16 tag);
+
+    //int HDerr (int32 file_id);
+    //intn HDvalidfid (int32 file_id);
+    //const char *  HDgettagdesc (uint16 tag);
+    //char * HDgettagsname (uint16 tag);
+    //intn HDgettagnum (const char *tag_name);
+    //char * HDgetNTdesc (int32 nt);
+    //const char *  HDfidtoname (int32 fid);
+    intn Hishdf (const char *filename);
+    //intn Hfidinquire (int32 file_id, char **fname,
+    //        intn * acc_mode, intn * attach);
+    //intn Hshutdown (void);
+    //void HPend (void);
+    //intn HDdont_atexit (void);
+    //intn Hdupdd (int32 file_id,   uint16 tag, uint16 ref, uint16 old_tag,
+    //        uint16 old_ref);
+    //int32 Hnumber (int32 file_id, uint16 tag);
+    //uint16 Hnewref (int32 file_id);
+    //uint16 Htagnewref (int32 file_id, uint16 tag);
+    //intn Hfind (int32 file_id,  uint16 search_tag,  uint16 search_ref,
+    //        uint16 * find_tag,  uint16 * find_ref,
+    //        int32 * find_offset, int32 * find_length, intn direction);
+    //intn HDcheck_tagref (int32 file_id, uint16 tag, uint16 ref);
+    //intn HDreuse_tagref (int32 file_id, uint16 tag, uint16 ref);
+    //intn Hdeldd (int32 file_id, uint16 tag, uint16 ref);
+
+    //void *HDmemfill   (void *dest, const void *src, uint32 item_size, uint32 num_items);
+
+    //char *HIstrncpy (char *dest, const char *source, int32 len);
+
+    //int32 HDspaceleft (void);
+
+    //intn HDc2fstr (char *str, intn len);
+    //char *HDf2cstring (_fcd fdesc, intn len);
+    //intn HDflush (int32 file_id);
+    //intn HDpackFstring (char *src, char *dest, intn len);
+    //int32 HLcreate (int32 file_id, uint16 tag, uint16 ref,
+    //        int32 block_length, int32 number_blocks);
+    //intn HLconvert (int32 aid, int32 block_length, int32 number_blocks);
+    //int HDinqblockinfo (int32 aid, int32 * length,
+    //        int32 * first_length, int32 * block_length,
+    //        int32 * number_blocks);
+    //intn HLsetblockinfo (int32 aid, int32 block_size, int32 num_blocks);
+    //intn HLgetblockinfo (int32 aid, int32 * block_size, int32 * num_blocks);
+    //int32 HXcreate (int32 file_id, uint16 tag, uint16 ref,
+    //        const char *extern_file_name,  int32 offset,
+    //        int32 start_len);
+    //intn HXsetcreatedir (const char *dir);
+    //intn HXsetdir (const char *dir);
+
+    /*
+       int32 HCcreate   (int32 file_id, uint16 tag, uint16 ref,  comp_model_t model_type, model_info * m_info,  comp_coder_t coder_type, comp_info * c_info);
+       intn HCPgetcompress   (int32 file_id, uint16 data_tag, uint16 data_ref,  comp_coder_t * coder_type, comp_info * c_info);
+       intn HCget_config_info (comp_coder_t coder_type,  uint32 * compression_config_info);
+       int32 HCPquery_encode_header (comp_model_t model_type,   model_info * m_info,   comp_coder_t coder_type,   comp_info * c_info);
+       intn HCPencode_header (uint8 * p, comp_model_t model_type,   model_info * m_info, comp_coder_t coder_type,   comp_info * c_info);
+       intn HCPdecode_header (uint8 * p, comp_model_t * model_type,   model_info * m_info, comp_coder_t * coder_type,   comp_info * c_info);
+       intn HCPsetup_szip_parms (comp_info * c_info, int32 nt, int32 ncomp,   int32 ndims, int32 * dims, int32 * cdims);
+       intn HBconvert (int32 aid);
+       int32 HRPconvert   (int32 fid, uint16 tag, uint16 ref, int32 xdim, int32 ydim,  int16 scheme, comp_info * cinfo, uintn pixel_size);
+     */
+
+    //const char *HEstring (hdf_err_code_t error_code);
+
+    /*
+       void HEpush   (hdf_err_code_t error_code, const char *function_name,  const char *file_name, intn line);
+       void HEreport (const char *, ...);
+       void HEprint (FILE * stream, int32 print_level);
+       int16 HEvalue (int32 level);
+       void HEPclear (void);
+       intn HEshutdown (void);
+     */
+
+    //int32 Hstartbitread (int32 file_id, uint16 tag, uint16 ref);
+    //int32 Hstartbitwrite   (int32 file_id, uint16 tag, uint16 ref, int32 length);
+    //intn Hbitappendable (int32 bitid);
+    //intn Hbitwrite (int32 bitid, intn count, uint32 data);
+    //intn Hbitread (int32 bitid, intn count, uint32 * data);
+    //intn Hbitseek (int32 bitid, int32 byte_offset, intn bit_offset);
+    //intn Hgetbit (int32 bitid);
+    //int32 Hendbitaccess (int32 bitfile_id, intn flushbit);
+    //intn HPbitshutdown (void);
+    //int32 ANstart (int32 file_id);
+    //intn ANfileinfo (int32 an_id, int32 * n_file_label,
+    //        int32 * n_file_desc,  int32 * n_obj_label,
+    //        int32 * n_obj_desc);
+    //int32 ANend (int32 an_id);
+    //int32 ANcreate (int32 an_id, uint16 elem_tag, uint16 elem_ref,   ann_type type);
+    //int32 ANcreatef (int32 an_id, ann_type type);
+    //int32 ANselect (int32 an_id, int32 idx, ann_type type);
+    //intn ANnumann (int32 an_id, ann_type type, uint16 elem_tag, uint16 elem_ref);
+    //intn ANannlist (int32 an_id, ann_type type, uint16 elem_tag, uint16 elem_ref,
+    //        int32 ann_list[]);
+    //int32 ANannlen (int32 ann_id);
+    //int32 ANwriteann (int32 ann_id, const char *ann, int32 annlen);
+    //int32 ANreadann (int32 ann_id, char *ann, int32 maxlen);
+    //intn ANendaccess (int32 ann_id);
+    //int32 ANget_tagref (int32 an_id, int32 idx, ann_type type,
+    //        uint16 * ann_tag, uint16 * ann_ref);
+    //int32 ANid2tagref (int32 an_id, uint16 * ann_tag, uint16 * ann_ref);
+    //int32 ANtagref2id (int32 an_id, uint16 ann_tag, uint16 ann_ref);
+    //uint16 ANatype2tag (ann_type atype);
+    //ann_type ANtag2atype (uint16 atag);
+    //intn ANdestroy (void);
+
+    // intn rigcompare (void *k1, void *k2, intn cmparg);
+
+    //int32 GRstart (int32 hdf_file_id);
+    //intn GRfileinfo (int32 grid, int32 * n_datasets, int32 * n_attrs);
+    //intn GRend (int32 grid);
+    //int32 GRcreate (int32 grid, const char *name, int32 ncomp,
+    //        int32 nt, int32 il, int32 dimsizes[2]);
+    //int32 GRselect (int32 grid, int32 idx);
+    //int32 GRnametoindex (int32 grid, const char *name);
+    //intn GRgetiminfo (int32 riid, char *name, int32 * ncomp,
+    //        int32 * nt,  int32 * il, int32 dimsizes[2],
+    //        int32 * n_attr);
+    //intn GRgetnluts (int32 riid);
+
+    // intn GRwriteimage (int32 riid, int32 start[2], int32 stride[2], //  int32 count[2], void *data);
+    // intn GRreadimage (int32 riid, int32 start[2], int32 stride[2], // int32 count[2], void *data);
+
+    //intn GRendaccess (int32 riid);
+    //uint16 GRidtoref (int32 riid);
+    //int32 GRreftoindex (int32 grid, uint16 ref);
+    //intn GRreqlutil (int32 riid, intn il);
+    //intn GRreqimageil (int32 riid, intn il);
+    //int32 GRgetlutid (int32 riid, int32 idx);
+    //uint16 GRluttoref (int32 lutid);
+    //intn GRgetlutinfo (int32 riid, int32 * ncomp, int32 * nt,
+    //        int32 * il, int32 * nentries);
+
+    // intn GRwritelut (int32 riid, int32 ncomps, int32 nt, // int32 il, int32 nentries, void *data);
+    // intn GRreadlut (int32 lutid, void *data);
+
+    //intn GRsetexternalfile (int32 riid, const char *filename,
+    //        int32 offset);
+    //intn GRsetaccesstype (int32 riid, uintn accesstype);
+
+    //intn GRsetcompress (int32 riid, comp_coder_t comp_type,  comp_info * cinfo);
+    //intn GRgetcompress (int32 riid, comp_coder_t * comp_type,  comp_info * cinfo);
+    // intn GRsetattr (int32 id, const char *name, int32 attr_nt, int32 count, const void *data);
+
+    //intn GRattrinfo (int32 id, int32 idx, char *name,
+    //        int32 * attr_nt,  int32 * count);
+
+    // intn GRgetattr (int32 id, int32 idx, void *data);
+
+    //int32 GRfindattr (int32 id, const char *name);
+    //intn GRPshutdown (void);
+
+    /*
+       typedef union hdf_chunk_def_u  {
+       int32 chunk_lengths[32];
+       struct   {
+       int32 chunk_lengths[32];
+       int32 comp_type;
+       int32 model_type;
+       comp_info cinfo;
+       model_info minfo;
+       }
+       comp;
+       struct   {
+       int32 chunk_lengths[32];
+       intn start_bit;
+       intn bit_len;
+       intn sign_ext;
+       intn fill_one;
+       }
+       nbit;
+       }
+       HDF_CHUNK_DEF;
+       intn GRsetchunk (int32 riid, HDF_CHUNK_DEF chunk_def, int32 flags);
+       intn GRgetchunkinfo   (int32 riid, HDF_CHUNK_DEF * chunk_def, int32 * flags);
+       intn GRwritechunk (int32 riid, int32 * origin, const void *datap);
+       intn GRreadchunk (int32 riid, int32 * origin, void *datap);
+       intn GRsetchunkcache (int32 riid, int32 maxcache, int32 flags);
+     */
+
+    // intn Vsetattr (int32 vgid, const char *attrname, int32 datatype, // int32 count, const void *values);
+
+    //intn Vnattrs (int32 vgid);
+    //intn Vfindattr (int32 vgid, const char *attrname);
+    //intn Vattrinfo (int32 vgid, intn attrindex, char *name,
+    //        int32 * datatype, int32 * count, int32 * size);
+
+    // intn Vgetattr (int32 vgid, intn attrindex, void *values);
+
+    HDF_ID Vgetversion (int32 vgid);
+    HDF_RESULT VSfindex (int32 vsid, const char *fieldname, int32 * fldindex);
+
+    // intn VSsetattr (int32 vsid, int32 findex, const char *attrname, int32 datatype, int32 count, const void *values);
+
+    //intn VSnattrs (int32 vsid);
+    //intn VSfnattrs (int32 vsid, int32 findex);
+    //intn VSfindattr (int32 vsid, int32 findex, const char *attrname);
+    //intn VSattrinfo (int32 vsid, int32 findex, intn attrindex,
+    //        char *name, int32 * datatype, int32 * count,
+    //        int32 * size);
+
+    // intn VSgetattr (int32 vsid, int32 findex, intn attrindex, void *values);
+
+    intn VSisattr (int32 vsid);
+    int32 vicheckcompat (HFILEID f);
+    int32 vimakecompat (HFILEID f);
+    int32 vcheckcompat (char *fs);
+    int32 vmakecompat (char *fs);
+    int32 VSelts (int32 vkey);
+    int32 VSgetinterlace (int32 vkey);
+    intn VSsetinterlace (int32 vkey, int32 interlace);
+    int32 VSgetfields (int32 vkey, char *fields);
+    intn VSfexist (int32 vkey, char *fields);
+    int32 VSsizeof (int32 vkey, char *fields);
+    void VSdump (int32 vkey);
+    int32 VSsetname (int32 vkey, const char *vsname);
+    int32 VSsetclass (int32 vkey, const char *vsclass);
+    int32 VSgetname (int32 vkey, char *vsname);
+    int32 VSgetclass (int32 vkey, char *vsclass);
+    intn VSinquire (int32 vkey, int32 * nelt, int32 * interlace,
+            char *fields, int32 * eltsize, char *vsname);
+    int32 VSlone (HFILEID f, int32 * idarray, int32 asize);
+    int32 Vlone (HFILEID f, int32 * idarray, int32 asize);
+    int32 Vfind (HFILEID f, const char *vgname);
+    int32 VSfind (HFILEID f, const char *vsname);
+    int32 Vfindclass (HFILEID f, const char *vgclass);
+    int32 VSfindclass (HFILEID f, const char *vsclass);
+    intn VSsetblocksize (int32 vkey, int32 block_size);
+    intn VSsetnumblocks (int32 vkey, int32 num_blocks);
+    intn VSgetblockinfo (int32 vkey, int32 * block_size, int32 * num_blocks);
+    void Vsetzap (void);
+
+    /*
+       intn vcompare (void *k1, void *k2, intn cmparg);
+       intn vcompareref (void *k1, void *k2, intn cmparg);
+       void vdestroynode (void *n);
+       void vtfreekey (void *k);
+     */
+
+    //intn Vinitialize (HFILEID f);
+    //intn Vfinish (HFILEID f);
+    //HFILEID Vopen (char *path, intn acc_mode, int16 ndds);
+    //intn Vclose (HFILEID f);
+    //int32 vexistvg (HFILEID f, uint16 vgid);
+    //int32 Vattach (HFILEID f, int32 vgid, const char *accesstype);
+    //int32 Vdetach (int32 vkey);
+    //int32 Vinsert (int32 vkey, int32 vskey);
+    //int32 Vflocate (int32 vkey, char *field);
+    //intn Vinqtagref (int32 vkey, int32 tag, int32 ref);
+    //int32 Vntagrefs (int32 vkey);
+    //int32 Vnrefs (int32 vkey, int32 tag);
+    //int32 Vgettagrefs (int32 vkey, int32 tagarray[], int32 refarray[], int32 n);
+    //intn Vgettagref (int32 vkey, int32 which, int32 * tag, int32 * ref);
+    //int32 VQueryref (int32 vkey);
+    //int32 VQuerytag (int32 vkey);
+    //int32 Vaddtagref (int32 vkey, int32 tag, int32 ref);
+    //int32 Ventries (HFILEID f, int32 vgid);
+    int32 Vsetname (int32 vkey, const char *vgname);
+    int32 Vsetclass (int32 vkey, const char *vgclass);
+    //intn Visvg (int32 vkey, int32 id);
+    //intn Visvs (int32 vkey, int32 id);
+    int32 Vgetid (HFILEID f, int32 vgid);
+    int32 Vgetnext (int32 vkey, int32 id);
+    int32 Vgetname (int32 vkey, char *vgname);
+    int32 Vgetclass (int32 vkey, char *vgclass);
+    intn Vinquire (int32 vkey, int32 * nentries, char *vgname);
+    int32 Vdelete (int32 f, int32 ref);
+    intn Vdeletetagref (int32 vkey, int32 tag, int32 ref);
+    //intn VPshutdown (void);
+    //int32 scanattrs (const char *attrs, int32 * attrc, char ***attrv);
+    //int32 VHstoredata (HFILEID f, const char *field,
+    //        const uint8 * buf, int32 n,  int32 datatype,
+    //        const char *vsname,
+    //        const char *vsclass);
+    //int32 VHstoredatam (HFILEID f, const char *field,
+    //        const uint8 * buf, int32 n,  int32 datatype,
+    //        const char *vsname,
+    //        const char *vsclass,
+    //        int32 order);
+    //int32 VHmakegroup (HFILEID f, int32 tagarray[], int32 refarray[],
+    //        int32 n,  const char *vgname,
+    //        const char *vgclass);
+    //intn VSPhshutdown (void);
+    //int32 vexistvs (HFILEID f, uint16 vsref);
+
+    /*
+       void vsdestroynode (void *n);
+       void vfdestroynode (void *n);
+     */
+
+    int32 VSattach (HFILEID f, int32 vsref, const char *accesstype);
+    int32 VSdetach (int32 vkey);
+    int32 VSQuerytag (int32 vkey);
+    int32 VSQueryref (int32 vkey);
+    int32 VSgetid (HFILEID f, int32 vsref);
+    int32 VSgetversion (int32 vkey);
+    int32 VSdelete (int32 f, int32 ref);
+    int32 VSappendable (int32 vkey, int32 blk);
+    HDF_RESULT VSsetfields (int32 vkey, const char *fields);
+    HDF_RESULT VSfdefine (int32 vkey, const char *field,
+            int32 localtype, int32 order);
+    HDF_INFO VFnfields (int32 vkey);
+    char *VFfieldname (int32 vkey, int32 idx);
+    int32 VFfieldtype (int32 vkey, int32 idx);
+    int32 VFfieldisize (int32 vkey, int32 idx);
+    int32 VFfieldesize (int32 vkey, int32 idx);
+    int32 VFfieldorder (int32 vkey, int32 idx);
+    intn VSsetexternalfile (int32 vkey, const char *filename,
+            int32 offset);
+
+    // intn VSfpack (int32 vsid, intn packtype, const char *fields_in_buf, void *buf, intn bufsz, intn n_records, const char *fields, void *fldbufpt[]);
+
+    intn VSPshutdown (void);
+    int32 VSseek (int32 vkey, int32 eltpos);
+    int32 VSread (int32 vkey, uint8 buf[], int32 nelt, int32 interlace);
+    int32 VSwrite (int32 vkey, const uint8 buf[], int32 nelt, int32 interlace);
+    typedef int16 gr_interlace_t;

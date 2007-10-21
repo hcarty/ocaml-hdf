@@ -40,10 +40,38 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "hdf_stubs.h"
+#include "hdf_impl.h"
 
 // Allow for ridiculously long exception strings... mainly in case of stupidly long filenames.
 #define MAX_EXCEPTION_MESSAGE_LENGTH 10000
+
+// Just raising an exception if an error is returned
+void hdf_check_result(intn result) {
+    if (result == FAIL) {
+        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+        sprintf(exception_message, "HDF: General Error");
+        caml_failwith(exception_message);
+    }
+    return;
+}
+
+void hdf_check_id(int32 result) {
+    if (result == FAIL) {
+        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+        sprintf(exception_message, "HDF: Bad ID");
+        caml_failwith(exception_message);
+    }
+    return;
+}
+
+void hdf_check_info(int32 result) {
+    if (result == FAIL) {
+        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+        sprintf(exception_message, "HDF: Bad info");
+        caml_failwith(exception_message);
+    }
+    return;
+}
 
 const char* hdf_datatype_to_string(int datatype) {
     switch (datatype) {
@@ -190,7 +218,7 @@ value ml_SDgetinfo(value sd_id, value sd_index) {
 
     // Get some basic information about this data.
     struct sd_info_struct sd_information;
-    sd_information = c_SDgetinfo( Int_val(sd_id), Int_val(sd_index) );
+    sd_information = c_SDgetinfo( Int32_val(sd_id), Int32_val(sd_index) );
 
     // Allocate an OCaml array to hold the dimensions of the HDF field.
     dimension_array = caml_alloc( sd_information.rank, 0 );
@@ -211,7 +239,7 @@ value ml_SDgetinfo(value sd_id, value sd_index) {
 }
 
 /* A little wrapper around SDgetinfo. */
-struct sd_info_struct c_SDgetinfo(int sd_id, int sd_index) {
+struct sd_info_struct c_SDgetinfo(int32 sd_id, int32 sd_index) {
     int32 sds_id;
     sds_id = SDselect(sd_id, sd_index);
 
@@ -222,7 +250,7 @@ struct sd_info_struct c_SDgetinfo(int sd_id, int sd_index) {
 
     if (status == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Unable to retrieve SD information: sd_id %d\n", Int_val(sd_id));
+        sprintf(exception_message, "Unable to retrieve SD information: sd_id %d\n", Int32_val(sd_id));
         caml_failwith(exception_message);
     }
 
@@ -239,10 +267,10 @@ value ml_SDreaddata(value sd_id, value sd_index, value data) {
     CAMLparam3(sd_id, sd_index, data);
 
     struct sd_info_struct sd_information;
-    sd_information = c_SDgetinfo( Int_val(sd_id), Int_val(sd_index) );
+    sd_information = c_SDgetinfo( Int32_val(sd_id), Int32_val(sd_index) );
 
     int32 sds_id;
-    sds_id = SDselect( Int_val(sd_id), Int_val(sd_index) );
+    sds_id = SDselect( Int32_val(sd_id), Int32_val(sd_index) );
 
     int32 start[sd_information.rank];
     int32 edges[sd_information.rank];

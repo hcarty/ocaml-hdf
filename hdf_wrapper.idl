@@ -1,0 +1,52 @@
+#include "hlimits_h.idl"
+
+#define LONG_DEFAULT int32
+[long_default(LONG_DEFAULT), int_default(camlint)] interface HDF {
+
+#define QUOTEME(x) #x
+#define RAW_ML(x) quote(mlmli, QUOTEME(x));
+
+RAW_ML(
+external c_SDreaddata : int32 -> int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDreaddata"
+external c_write_data: int -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDwritedata"
+)
+
+    typedef char *_fcd;
+    typedef char char8;
+    typedef unsigned char uchar8;
+    typedef char hdf_int8;
+    typedef unsigned char hdf_uint8;
+    typedef short int hdf_int16;
+    typedef unsigned short int hdf_uint16;
+    //typedef long int hdf_int32;
+    //typedef unsigned long int hdf_uint32;
+    typedef int intn;
+    typedef unsigned int uintn;
+    typedef float float32;
+    typedef double float64;
+    typedef [errorcheck(hdf_check_result), errorcode] intn HDF_RESULT;
+    typedef [errorcheck(hdf_check_id)] long HDF_ID;
+    typedef [errorcheck(hdf_check_info)] long HDF_INFO;
+
+    // XXX A HORRIBLE HACK to get around typedef clashes
+#define int32 long
+#define uint32 long
+#define int8 hdf_int8
+#define uint8 hdf_uint8
+#define int16 hdf_int16
+#define uint16 hdf_uint16
+
+// _DFACC* taken from hdf_h.inc
+#define _DFACC_READ 1
+#define _DFACC_WRITE 2
+#define _DFACC_CREATE 4
+#define _DFACC_ALL 7
+
+#define _DFACC_RDONLY 1
+#define _DFACC_RDWR 3
+#define _DFACC_CLOBBER 4
+#include "hdf_h.inc"
+
+#include "mfhdf_h.inc"
+
+}

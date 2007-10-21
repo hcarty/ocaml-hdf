@@ -1,0 +1,172 @@
+    typedef enum
+    {
+        NOT_SDAPI_ID = -1,
+        SD_ID = 0,
+        SDS_ID,
+        DIM_ID
+    } hdf_idtype_t;
+
+    int32 SDstart
+        (const char *name, access_type accs);
+
+    intn SDend
+        (int32 fid);
+
+    intn SDfileinfo
+        (int32 fid, int32 *datasets, int32 *attrs);
+
+    int32 SDselect
+        (int32 fid, int32 idx);
+
+    intn SDgetinfo
+        (int32 sdsid, char *name, int32 *rank, int32 *dimsizes,
+         int32 *nt, int32 *nattr);
+
+//    intn SDreaddata
+//        (int32 sdsid, int32 *start, int32 *stride, int32 *end, void * data);
+
+//    uint16 SDgerefnumber
+//        (int32 sdsid);
+
+    int32 SDnametoindex
+        (int32 fid, const char *name);
+
+//    intn SDgetrange
+//        (int32 sdsid, void * pmax, void * pmin);
+
+    int32 SDcreate
+        (int32 fid, const char *name, int32 nt, int32 rank, int32 *dimsizes);
+
+    int32 SDgetdimid
+        (int32 sdsid, intn number);
+
+    intn SDsetdimname
+        (int32 id, const char *name);
+
+    intn SDendaccess
+        (int32 id);
+
+//    intn SDsetrange
+//        (int32 sdsid, void * pmax, void * pmin);
+
+//    intn SDsetattr
+//        (int32 id, const char *name, int32 nt, int32 count, const void * data);
+
+    intn SDattrinfo
+        (int32 id, int32 idx, char *name, int32 *nt, int32 *count);
+
+//    intn SDreadattr
+//        (int32 id, int32 idx, void * buf);
+
+
+//    intn SDwritedata
+//        (int32 sdsid, int32 *start, int32 *stride, int32 *end, void * data);
+
+
+    intn SDsetdatastrs
+        (int32 sdsid, const char *l, const char *u, const char *f, const char *c);
+
+    intn SDsetcal
+        (int32 sdsid, float64 cal, float64 cale, float64 ioff,
+         float64 ioffe, int32 nt);
+
+//    intn SDsetfillvalue
+//        (int32 sdsid, void * val);
+
+//    intn SDgetfillvalue
+//        (int32 sdsid, void * val);
+
+    intn SDsetfillmode
+        (int32 id, intn fillmode);
+
+    intn SDgetdatastrs
+        (int32 sdsid, char *l, char *u, char *f, char *c, intn len);
+
+    intn SDgetcal
+        (int32 sdsid, float64 *cal, float64 *cale, float64 *ioff,
+         float64 *ioffe, int32 *nt);
+
+    intn SDsetdimstrs
+        (int32 id, const char *l, const char *u, const char *f);
+
+//    intn SDsetdimscale
+//        (int32 id, int32 count, int32 nt, void * data);
+
+//    intn SDgetdimscale
+//        (int32 id, void * data);
+
+    intn SDdiminfo
+        (int32 id, char *name, int32 *size, int32 *nt, int32 *nattr);
+
+    intn SDgetdimstrs
+        (int32 id, char *l, char *u, char *f, intn len);
+
+    intn SDsetexternalfile
+        (int32 id, const char *filename, int32 offset);
+
+    intn SDsetnbitdataset
+        (int32 id, intn start_bit, intn bit_len, intn sign_ext, intn fill_one);
+
+//    intn SDsetcompress
+//        (int32 id, comp_coder_t type, comp_info *c_info);
+
+//    intn SDgetcompress
+//        (int32 id, comp_coder_t* type, comp_info *c_info);
+
+    int32 SDfindattr
+        (int32 id, const char *attrname);
+
+    int32 SDidtoref
+        (int32 id);
+
+    int32 SDreftoindex
+        (int32 fid, int32 ref);
+
+    int32 SDisrecord
+        (int32 id);
+
+    intn SDiscoordvar
+        (int32 id);
+
+    intn SDsetaccesstype
+        (int32 id, uintn accesstype);
+
+    intn SDsetblocksize
+        (int32 sdsid, int32 block_size);
+
+    intn SDsetdimval_comp
+        (int32 dimid, intn compt_mode);
+
+    intn SDisdimval_bwcomp
+        (int32 dimid);
+
+    int32 SDcheckempty
+        (int32 sdsid, intn *emptySDS);
+
+    hdf_idtype_t SDidtype
+        (int32 an_id);
+
+//    intn SDsetchunk
+//        (int32 sdsid,
+//         HDF_CHUNK_DEF chunk_def,
+//         int32 flags );
+
+//    intn SDgetchunkinfo
+//        (int32 sdsid,
+//         HDF_CHUNK_DEF *chunk_def,
+//         int32 *flags );
+
+//    intn SDwritechunk
+//        (int32 sdsid,
+//         int32 *origin,
+//         const void *datap );
+
+//    intn SDreadchunk
+//        (int32 sdsid,
+//         int32 *origin,
+//         void *datap );
+
+    intn SDsetchunkcache
+        (int32 sdsid,
+         int32 maxcache,
+         int32 flags );

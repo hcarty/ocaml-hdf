@@ -16,6 +16,6 @@ struct vs_info_struct {
     hdf_int32 n_records;
 };
 
-struct sd_info_struct c_SDgetinfo(int sd_id, int sd_index);
-const char* hdf_getSDS_data(int sd_id, int sd_index, void* data);
+struct sd_info_struct c_SDgetinfo(int32 sd_id, int32 sd_index);
+const char* hdf_getSDS_data(int32 sd_id, int32 sd_index, void* data);
 
