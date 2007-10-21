@@ -3,8 +3,8 @@ ANNOTATE = yes
 PACKS = bigarray extbigarray
 LIBS =
 OCAMLLIBPATH =
-INCDIRS=/home/hcarty/Applications/hdf4/include
-LIBDIRS=/home/hcarty/Applications/hdf4/lib
+INCDIRS=/usr/include/hdf
+LIBDIRS=/usr/lib/hdf
 EXTLIBDIRS =
 
 CLIBS = mfhdf df z jpeg
