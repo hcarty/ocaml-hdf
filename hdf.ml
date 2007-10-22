@@ -3,6 +3,11 @@
 module G = ExtBigarray
 
 include Hdf_wrapper
+(* Carry over some naming conventions from hdf.h *)
+let hdf_open = h_open
+let hdf_close = h_close
+let v_start = v_initialize
+let v_end = v_finish
 
 (** The basic type which encapsulates the HDF data types we can
     support.  These are encapsulated in a variant type to avoid having
