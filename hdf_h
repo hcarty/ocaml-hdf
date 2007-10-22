@@ -397,7 +397,7 @@
             int32 localtype, int32 order);
     HDF_INFO VFnfields (int32 vkey);
     char *VFfieldname (int32 vkey, int32 idx);
-    int32 VFfieldtype (int32 vkey, int32 idx);
+    hdf_data_type VFfieldtype (int32 vkey, int32 idx);
     int32 VFfieldisize (int32 vkey, int32 idx);
     int32 VFfieldesize (int32 vkey, int32 idx);
     int32 VFfieldorder (int32 vkey, int32 idx);

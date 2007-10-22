@@ -36,6 +36,9 @@ external c_write_data: int -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
 #define int16 hdf_int16
 #define uint16 hdf_uint16
 
+// Some hand-updated stuff
+#include "hdf_extras.idl"
+
 // _DFACC* taken from hdf_h.inc
 #define _DFACC_READ 1
 #define _DFACC_WRITE 2
