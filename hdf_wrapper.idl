@@ -6,11 +6,6 @@
 #define QUOTEME(x) #x
 #define RAW_ML(x) quote(mlmli, QUOTEME(x));
 
-RAW_ML(
-external c_SDreaddata : int32 -> int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDreaddata"
-external c_write_data: int -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDwritedata"
-)
-
     typedef char *_fcd;
     typedef char char8;
     typedef unsigned char uchar8;

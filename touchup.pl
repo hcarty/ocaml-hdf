@@ -93,8 +93,9 @@ sub argument_attributes {
 
     my %attributes = ();
 
-    # *get* and *info* are (generally?) using pointer values as output.
-    if ($function =~ /get|info/ and $type =~ /\*/) {
+    # *get* and *info* and *inquire* are (generally?) using pointer values
+    # as output.
+    if ($function =~ /get|info|inquire/ and $type =~ /\*/) {
         $attributes{out} = 1;
     }
 
