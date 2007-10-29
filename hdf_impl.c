@@ -621,15 +621,15 @@ value ml_VSwrite(value vdata_id, value databuf, value n_records) {
     CAMLparam3(vdata_id, databuf, n_records);
 
     int records_written;
-    records_written = VSwrite( Int32_val(vdata_id), (uchar8*)Data_bigarray_val(databuf), Int_val(n_records), FULL_INTERLACE);
+    records_written = VSwrite( Int32_val(vdata_id), (uchar8*)Data_bigarray_val(databuf), Int32_val(n_records), FULL_INTERLACE);
     if (records_written == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
         sprintf(exception_message, "Failure with VSwrite.");
         caml_failwith(exception_message);
     }
-    else if ( records_written != Int_val(n_records) ) {
+    else if ( records_written != Int32_val(n_records) ) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Written records (%d) not equal to given records (%d)", records_written, Int_val(n_records));
+        sprintf(exception_message, "Written records (%d) not equal to given records (%d)", records_written, Int32_val(n_records));
         caml_failwith(exception_message);
     }
 

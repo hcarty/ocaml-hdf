@@ -10,9 +10,9 @@ let v_start = v_initialize
 let v_end = v_finish
 (* Low-level functions wrapped by hand. *)
 external vs_write: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
-  int -> unit = "ml_VSwrite"
+  int32 -> unit = "ml_VSwrite"
 external vs_read: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
-  int32 = "ml_VSread"
+  int32 -> unit = "ml_VSread"
 
 (** The basic type which encapsulates the HDF data types we can
     support.  These are encapsulated in a variant type to avoid having
