@@ -361,7 +361,6 @@ value ml_vd_index_from_vdata_ref(value file_id, value target_vdata_ref) {
 
 struct vs_info_struct c_VSinquire(int32 vd_index, int32 vdata_id) {
     // Get some information on the vdata.
-    // XXX Using the "hdf_int32" type to make the compiler happy.  See the hack around the hdf.h include.
     struct vs_info_struct vs_info;
     int32 status;
     status = VSinquire(vdata_id, &vs_info.n_records, &vs_info.interlace_mode, vs_info.field_name_list, &vs_info.vdata_size, vs_info.vdata_name);
@@ -375,7 +374,23 @@ struct vs_info_struct c_VSinquire(int32 vd_index, int32 vdata_id) {
 }
 
 /* Read VS data sets */
-value ml_VSread(value file_id, value vd_index, value data) {
+value ml_VSread(value vdata_id, value data, value n_records) {
+    CAMLparam3(vdata_id, data, n_records);
+
+    int32 status;
+    status = VSread(Int32_val(vdata_id), Data_bigarray_val(data), Int32_val(n_records), FULL_INTERLACE);
+    if (status != Int32_val(n_records)) {
+        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+        sprintf(exception_message, "Unable to read all of the requested Vdata records: %d of %d\n",
+                status, Int32_val(n_records));
+        caml_failwith(exception_message);
+    }
+
+    CAMLreturn( Val_unit );
+}
+
+/* Read VS data sets */
+value ml_VSread_complicated(value file_id, value vd_index, value data) {
     CAMLparam3(file_id, vd_index, data);
 
     // Select the proper vdata reference by counting from the first...

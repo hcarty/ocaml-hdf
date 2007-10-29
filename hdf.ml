@@ -8,6 +8,11 @@ let hdf_open = h_open
 let hdf_close = h_close
 let v_start = v_initialize
 let v_end = v_finish
+(* Low-level functions wrapped by hand. *)
+external vs_write: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
+  int -> unit = "ml_VSwrite"
+external vs_read: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
+  int32 = "ml_VSread"
 
 (** The basic type which encapsulates the HDF data types we can
     support.  These are encapsulated in a variant type to avoid having
@@ -518,9 +523,11 @@ struct
   *)
 
   external c_get_data: int32 -> int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
-    string = "ml_VSread"
+    string = "ml_VSread_complicated"
   (** [get_VDdata file_id vd_index genarray] returns the data type string for [vd_index].
       The data referenced by [vd_index] is stored in [genarray].
+      XXX : This is an older, more complex version.  The "raw" VSread function is wrapped
+      as [Hdf.vs_read].
   *)
 
   let _get_data (InterfaceID file_id) (DataID vd_index) data =
@@ -621,10 +628,8 @@ struct
   let set_fields (DataID vdata_id) field_list_string = c_set_fields vdata_id field_list_string
   (** [set_fields vdata_id field_list_string] *)
 
-  external c_write: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> int -> unit = "ml_VSwrite"
-
   let write (DataID vdata_id) data number_of_records =
-    let f x = c_write vdata_id x number_of_records in
+    let f x = vs_write vdata_id x number_of_records in
     match data with
         Int8 x -> f x
       | UInt8 x -> f x
