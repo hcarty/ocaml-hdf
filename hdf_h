@@ -394,7 +394,7 @@
     int32 VSappendable (int32 vkey, int32 blk);
     HDF_RESULT VSsetfields (int32 vkey, const char *fields);
     HDF_RESULT VSfdefine (int32 vkey, const char *field,
-            int32 localtype, int32 order);
+            hdf_data_type localtype, int32 order);
     HDF_INFO VFnfields (int32 vkey);
     char *VFfieldname (int32 vkey, int32 idx);
     hdf_data_type VFfieldtype (int32 vkey, int32 idx);
@@ -408,6 +408,6 @@
 
     intn VSPshutdown (void);
     int32 VSseek (int32 vkey, int32 eltpos);
-    int32 VSread (int32 vkey, uint8 buf[], int32 nelt, int32 interlace);
-    int32 VSwrite (int32 vkey, const uint8 buf[], int32 nelt, int32 interlace);
+    //int32 VSread (int32 vkey, uint8 buf[], int32 nelt, int32 interlace);
+    //int32 VSwrite (int32 vkey, const uint8 buf[], int32 nelt, int32 interlace);
     typedef int16 gr_interlace_t;
