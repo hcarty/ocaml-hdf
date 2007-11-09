@@ -274,12 +274,12 @@
        intn GRsetchunkcache (int32 riid, int32 maxcache, int32 flags);
      */
 
-    // intn Vsetattr (int32 vgid, const char *attrname, int32 datatype, // int32 count, const void *values);
+    // intn Vsetattr (int32 vgid, const char *attrname, int32 datatype, int32 count, const void *values);
 
-    //intn Vnattrs (int32 vgid);
-    //intn Vfindattr (int32 vgid, const char *attrname);
-    //intn Vattrinfo (int32 vgid, intn attrindex, char *name,
-    //        int32 * datatype, int32 * count, int32 * size);
+    intn Vnattrs (int32 vgid);
+    intn Vfindattr (int32 vgid, const char *attrname);
+    intn Vattrinfo (int32 vgid, intn attrindex, char *name,
+            int32 * datatype, int32 * count, int32 * size);
 
     // intn Vgetattr (int32 vgid, intn attrindex, void *values);
 
@@ -288,12 +288,12 @@
 
     // intn VSsetattr (int32 vsid, int32 findex, const char *attrname, int32 datatype, int32 count, const void *values);
 
-    //intn VSnattrs (int32 vsid);
-    //intn VSfnattrs (int32 vsid, int32 findex);
-    //intn VSfindattr (int32 vsid, int32 findex, const char *attrname);
-    //intn VSattrinfo (int32 vsid, int32 findex, intn attrindex,
-    //        char *name, int32 * datatype, int32 * count,
-    //        int32 * size);
+    intn VSnattrs (int32 vsid);
+    intn VSfnattrs (int32 vsid, int32 findex);
+    intn VSfindattr (int32 vsid, int32 findex, const char *attrname);
+    intn VSattrinfo (int32 vsid, int32 findex, intn attrindex,
+            char *name, int32 * datatype, int32 * count,
+            int32 * size);
 
     // intn VSgetattr (int32 vsid, int32 findex, intn attrindex, void *values);
 

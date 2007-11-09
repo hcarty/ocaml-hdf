@@ -185,14 +185,14 @@ value ml_Hclose(value file_id) {
 value ml_SDstart(value filename) {
     CAMLparam1(filename);
 
-    CAMLreturn( Val_int( SDstart( String_val(filename), DFACC_READ ) ) );
+    CAMLreturn( caml_copy_int32( SDstart( String_val(filename), DFACC_READ ) ) );
 }
 
 /* Close a connection started with SDstart. */
 value ml_SDend(value sd_id) {
     CAMLparam1(sd_id);
 
-    CAMLreturn( Val_int( SDend( Int_val(sd_id) ) ) );
+    CAMLreturn( Val_int( SDend( Int32_val(sd_id) ) ) );
 }
 
 /* Open a path to the HDF Vdata interface. */
@@ -250,7 +250,7 @@ struct sd_info_struct c_SDgetinfo(int32 sd_id, int32 sd_index) {
 
     if (status == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Unable to retrieve SD information: sd_id %d\n", Int32_val(sd_id));
+        sprintf(exception_message, "Unable to retrieve SD information: sd_id %d\n", sd_id);
         caml_failwith(exception_message);
     }
 
@@ -289,7 +289,7 @@ value ml_SDreaddata(value sd_id, value sd_index, value data) {
     status = SDreaddata(sds_id, start, NULL, edges, Data_bigarray_val(data) ); 
 
     if (status == FAIL) {
-        printf("Unable to read the SDS data with index %d.\n", sd_index);
+        printf("Unable to read the SDS data with index %d.\n", Int32_val(sd_index));
         exit(-1);
     }
 
@@ -489,7 +489,7 @@ value ml_VSinquire(value file_id, value vd_index) {
 value ml_Hopen_create(value filename) {
     CAMLparam1(filename);
 
-    CAMLreturn( Val_int( Hopen( String_val(filename), DFACC_CREATE, 0 ) ) );
+    CAMLreturn( caml_copy_int32( Hopen( String_val(filename), DFACC_CREATE, 0 ) ) );
 }
 
 /* Open an existing HDF file for read/write access
@@ -509,7 +509,7 @@ value ml_Hopen_rw(value filename) {
 value ml_SDstart_create(value filename) {
     CAMLparam1(filename);
 
-    CAMLreturn( Val_int( SDstart( String_val(filename), DFACC_CREATE ) ) );
+    CAMLreturn( caml_copy_int32( SDstart( String_val(filename), DFACC_CREATE ) ) );
 }
 
 /* Open an EXISTING SD file for read/write access.  Returns an error if the file
@@ -519,7 +519,7 @@ value ml_SDstart_create(value filename) {
 value ml_SDstart_rw(value filename) {
     CAMLparam1(filename);
 
-    CAMLreturn( Val_int( SDstart( String_val(filename), DFACC_WRITE ) ) );
+    CAMLreturn( caml_copy_int32( SDstart( String_val(filename), DFACC_WRITE ) ) );
 }
 
 value ml_SDcreate(value sd_id, value name, value data_type_string, value rank, value dimsizes) {
@@ -529,12 +529,12 @@ value ml_SDcreate(value sd_id, value name, value data_type_string, value rank, v
     data_type = string_to_hdf_datatype( String_val(data_type_string) );
 
     CAMLreturn(
-        Val_int(
+        caml_copy_int32(
             SDcreate(
-                Int_val(sd_id),
+                Int32_val(sd_id),
                 String_val(name),
                 data_type,
-                Int_val(rank),
+                Int32_val(rank),
                 Data_bigarray_val(dimsizes)
             )
         )
@@ -554,7 +554,7 @@ value ml_SDwritedata(value sds_id, value data) {
     }
 
     int32 status;
-    status = SDwritedata( Int_val(sds_id), start, NULL, edge, Data_bigarray_val(data) );
+    status = SDwritedata( Int32_val(sds_id), start, NULL, edge, Data_bigarray_val(data) );
     // XXX Check for errors, and throw those exceptions!!
     if (status == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
@@ -568,7 +568,7 @@ value ml_SDwritedata(value sds_id, value data) {
 value ml_SDendaccess(value sds_id) {
     CAMLparam1(sds_id);
 
-    CAMLreturn( Val_int( SDendaccess( Int_val( sds_id ) ) ) );
+    CAMLreturn( Val_int( SDendaccess( Int32_val( sds_id ) ) ) );
 }
 
 value ml_VSattach_create(value file_id) {

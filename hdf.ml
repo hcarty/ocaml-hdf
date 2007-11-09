@@ -285,8 +285,8 @@ let fold_float f initial data =
 
 module SD =
 struct
-  type interface_id = InterfaceID of int
-  type data_id = DataID of int
+  type interface_id = InterfaceID of int32
+  type data_id = DataID of int32
   type data_spec = {
     index : data_id;
     name : string;
@@ -295,7 +295,7 @@ struct
   }
   (** This type holds the basic specs for SDS entries in a HDF4 file. *)
 
-  external c_open_file: string -> int = "ml_SDstart"
+  external c_open_file: string -> int32 = "ml_SDstart"
 
   let open_file filename = InterfaceID (c_open_file filename)
   (** Open the Scientific Data Set (SDS) data interface for a HDF4 file.
@@ -303,7 +303,7 @@ struct
       This function opens the SDS interface in read-only mode.
   *)
 
-  external c_get_info: int -> int -> (int * string * string * int array * int) = "ml_SDgetinfo"
+  external c_get_info: int32 -> int32 -> (int32 * string * string * int array * int) = "ml_SDgetinfo"
   (** Get specs for an individual SDS entry.
       [get_sd_info sd_id sd_index] gives [(sd_index, SDS name, data type string,
       array of dimensions, num_attrs)]
@@ -321,7 +321,7 @@ struct
     }
   (** [get_info interface_id data_id] - Get specs for the given SDS entry. *)
 
-  external c_get_data: int -> int -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
+  external c_get_data: int32 -> int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
     string = "ml_SDreaddata"
   (** [c_get_data sd_id sd_index genarray] returns a string with the data type.
       The actual data is stored in [genarray].
@@ -333,7 +333,7 @@ struct
       The actual data is stored in [genarray].
   *)
 
-  external c_close_file: int -> int = "ml_SDend"
+  external c_close_file: int32 -> int = "ml_SDend"
 
   let close_file (InterfaceID cs_id) = c_close_file cs_id
   (** [close_file sd_id] closes the given SDS interface.
@@ -351,16 +351,16 @@ struct
     let rec f i =
       try
         let info = get_info sd_id (DataID i) in
-        info :: f (i + 1)
+        info :: f (Int32.add i 1l)
       with
           (* TODO - This isn't a very good error checking method. *)
         Failure x ->
-          if i > 0 then
+          if i > 0l then
             []
           else
             failwith x
     in
-    f 0
+    f 0l
   (** [get_spec_list sd_id] returns a list of the information given by {!Hdf.get_sd_info}
       for each SDS available through the given [sd_id] interface.
   *)
@@ -396,14 +396,14 @@ struct
     data
   (** [get_by_name interface_id data_name] returns the data called [data_name]. *)
 
-  external c_open_sd_create: string -> int = "ml_SDstart_create"
+  external c_open_sd_create: string -> int32 = "ml_SDstart_create"
 
   let open_sd_create filename = InterfaceID (c_open_sd_create filename)
   (** [open_sd_create filename] creates a new HDF4 file [filename] with an SDS interface.
   *)
 
-  external c_create: int -> string -> string -> int ->
-    ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> int = "ml_SDcreate"
+  external c_create: int32 -> string -> string -> int32 ->
+    ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> int32 = "ml_SDcreate"
   (** [c_create sd_id name datatype_string number_of_dimensions genarray_of_dimensions] *)
 
   let create (InterfaceID sd_id) name data_type dimensions =
@@ -412,12 +412,12 @@ struct
       (Bigarray.Array1.of_array Bigarray.int Bigarray.c_layout dimensions)
     in
     let data_type_string = _string_from_data_type data_type in
-    DataID (c_create sd_id name data_type_string (Array.length dimensions) dims)
+    DataID (c_create sd_id name data_type_string (Int32.of_int (Array.length dimensions)) dims)
   (** [create sd_id name data_type dimensions] creates an entry in [sd_id] named
       [name] of type [data_type] with the given [dimensions].
   *)
 
-  external c_write_data: int -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDwritedata"
+  external c_write_data: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDwritedata"
 
   let write_data (DataID sds_id) data =
     let f x = c_write_data sds_id x in
@@ -438,7 +438,7 @@ struct
     write_data sds_id data
   (** [create_data sd_id name data] - create and write an SDS named [name] *)
 
-  external c_end_access: int -> int = "ml_SDendaccess"
+  external c_end_access: int32 -> int = "ml_SDendaccess"
 
   let end_access (DataID sds_id) = c_end_access sds_id
   (** [end_access sds_id]
