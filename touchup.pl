@@ -4,9 +4,18 @@ use strict;
 use warnings;
 
 use constant MAX_STRING_LENGTH => 1024;
+use constant MAX_VAR_DIMS => 32;
 
 my $input_file = $ARGV[0];
 my $output_file = $ARGV[0] . ".inc";
+
+my %manual_function_attributes = (
+    SDgetinfo => {
+        parameter_attributes => {
+            dimsizes => ["length_is(" . MAX_VAR_DIMS . ")"]
+        }
+    }
+);
 
 =begin
 Read in the file contents, return an array containing each of the lines.
@@ -76,13 +85,23 @@ sub function_attributes {
     # Remove the UPPERCASE from the OCaml names, since OCaml does not allow
     # functions to have names with leading capital letters.
     if ($name =~ /^([A-Z]+)(.*)$/) {
-         $attributes{"mlname(" . lc($1) . "_$2)"} = 1;
+        $attributes{"mlname(" . lc($1) . "_$2)"} = 1;
     }
 
     # If returning a char *, make it a string
     if ($type =~ /char\s+\*/) {
         $attributes{"string"} = 1;
         $attributes{"length_is(" . MAX_STRING_LENGTH . ")"} = 1;
+    }
+
+    # Function-specific special cases
+    if (grep { /$name/ } (keys %manual_function_attributes)) {
+        print "Manual function attribute(s) available for $name\n";
+        # Add each manual attribute to the attribute record hash.
+        my $function_attributes = $manual_function_attributes{$name}->{function_attributes};
+        for (@$function_attributes) {
+            $attributes{$_} = 1;
+        }
     }
 
     (keys %attributes) ? (keys %attributes) : ();
@@ -104,6 +123,18 @@ sub argument_attributes {
         $attributes{string} = 1;
         if ($attributes{out}) {
             $attributes{"length_is(" . MAX_STRING_LENGTH . ")"} = 1;
+        }
+    }
+
+    # Function-specific special cases
+    if (grep { /$function/ } (keys %manual_function_attributes)) {
+        if (grep { /$name/ } (keys %{$manual_function_attributes{$function}->{parameter_attributes}})) {
+            print "Manual parameter attribute(s) available for $name\n";
+            # Add each manual attribute to the attribute record hash.
+            my $parameter_attributes = $manual_function_attributes{$name}->{parameter_attributes};
+            for (@$parameter_attributes) {
+                $attributes{$_} = 1;
+            }
         }
     }
 
