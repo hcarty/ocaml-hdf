@@ -2,6 +2,7 @@
 requires = "bigarray"
 requires += "extbigarray"
 requires += "camlidl"
+requires += "pcre"
 description = "HDF library interface for OCaml"
 version = "0.1"
 browse_interfaces = " Hdf "

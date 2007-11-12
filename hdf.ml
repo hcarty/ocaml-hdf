@@ -1,5 +1,6 @@
 (** {5 HDF4} *)
 
+open Bigarray
 module G = ExtBigarray
 
 (** {6 Low Level Functions} *)
@@ -300,6 +301,13 @@ struct
     dimensions : int array;
   }
 
+  type sds_t = {
+    sds_name : string;
+    sds_type : data_t;
+    sds_dimensions : int array;
+    data : t;
+  }
+
   external c_open_file: string -> int32 = "ml_SDstart"
 
   (** Open the Scientific Data Set (SDS) data interface for a HDF4 file.
@@ -401,6 +409,28 @@ struct
     let _ = _get_data sd_id sds_index data in
     data
 
+  (** [read_sds_t_list sd_id] returns a list of the SDS contents of [sd_id] *)
+  let read_sds_t_list (InterfaceID sd_id) =
+    let (_, number_sds, _) = sd_fileinfo sd_id in
+    let rec f i =
+      try
+        let info = get_info (InterfaceID sd_id) (DataID i) in
+        let this_sds = { sds_name = info.name; sds_type = info.data_type;
+                         sds_dimensions = info.dimensions;
+                         data = get_data_by_index (InterfaceID sd_id) info.index;
+                       }
+        in
+        this_sds :: f (Int32.add i 1l)
+      with
+          (* TODO - This isn't a very good error checking method. *)
+        Failure x ->
+          if i > 0l then
+            []
+          else
+            failwith x
+    in
+    f 0l
+
   external c_open_sd_create: string -> int32 = "ml_SDstart_create"
 
   (** [open_sd_create filename] creates a new HDF4 file [filename] with an SDS interface.
@@ -455,6 +485,140 @@ module Vdata =
 struct
   type interface_id = InterfaceID of int32
   type data_id = DataID of int32
+
+  (** This data type holds everything about a given Vdata, including the
+      contents as raw bytes *)
+  type vdata_t = {
+    n_records : int32;
+    interlace : int32;
+    fields : string;
+    vdata_size : int32;
+    vdata_name : string;
+    vdata_class : string;
+    num_attrs : int;
+    num_fields : int;
+    field_orders : int32 array;
+    field_types : hdf_data_type array;
+    field_sizes : int32 array;
+    field_num_attrs : int array;
+    data : (int, int8_unsigned_elt, c_layout) Genarray.t;
+  }
+
+  (** Allocate space to hold Vdata *)
+  let allocate_vdata_bigarray bytes =
+    Genarray.create int8_unsigned c_layout [|bytes|]
+
+  (** [read_vdata_t vdata_id] returns the given Vdata, along with specs. *)
+  let read_vdata_t vdata_id =
+    let (istat, n_records, interlace, fields, vdata_size, vdata_name) =
+      vs_inquire vdata_id
+    in
+    let (_, vdata_class) = vs_getclass vdata_id in
+    let num_attrs = vs_fnattrs vdata_id (-1l) in
+    let num_fields = Int32.to_int (vf_nfields vdata_id) in
+    let field_orders =
+      Array.init num_fields (fun i -> vf_fieldorder vdata_id (Int32.of_int i))
+    in
+    let field_types =
+      Array.init num_fields (fun i -> vf_fieldtype vdata_id (Int32.of_int i))
+    in
+    let field_sizes =
+      Array.init num_fields (fun i -> vf_fieldisize vdata_id (Int32.of_int i))
+    in
+    let field_num_attrs =
+      Array.init num_fields (fun i -> vs_fnattrs vdata_id (Int32.of_int i))
+    in
+    (* Create a Bigarray to hold the data, and suck it all up.
+       The total size in bytes of the Vdata is vdata_size * n_records.
+    *)
+    let data =
+      allocate_vdata_bigarray (Int32.to_int vdata_size * Int32.to_int n_records)
+    in
+    vs_setfields vdata_id fields;
+    vs_read vdata_id data n_records;
+    {
+      n_records = n_records;
+      interlace = interlace;
+      fields = fields;
+      vdata_size = vdata_size;
+      vdata_name = vdata_name;
+      vdata_class = vdata_class;
+      num_attrs = num_attrs;
+      num_fields = num_fields;
+      field_orders = field_orders;
+      field_types = field_types;
+      field_sizes = field_sizes;
+      field_num_attrs = field_num_attrs;
+      data = data;
+    }
+
+  (** [vdata_read_map f file_id] will go through each Vdata in [file_id],
+      applying [f] and returning a list of the results.  This is mainly meant
+      to be used in the [read_vdata_t_list] function below but may have other
+      uses.
+  *)
+  let vdata_read_map f file_id =
+    let vdata_ref_0 = vs_getid file_id (-1l) in
+    let rec loop l vdata_ref =
+      let vdata_id = vs_attach file_id vdata_ref "r" in
+      if vdata_id = -1l then
+        List.rev l
+      else
+        let result = f vdata_id in
+        let _ = vs_detach vdata_id in
+        loop (result :: l) (vs_getid file_id vdata_ref)
+    in
+    loop [] vdata_ref_0
+
+  (** [read_vdata_t_list filename] will return a list of [vdata_t], one for each
+      Vdata in [filename].  The data in the returned list are in the same order
+      as those in [filename].
+
+  *)
+  let read_vdata_t_list filename =
+    let file_id = h_open filename DFACC_READ 0 in
+    v_start file_id;
+
+    let vdata_list = vdata_read_map read_vdata_t file_id in
+
+    v_end file_id;
+    h_close file_id;
+    vdata_list
+
+  (** [write_vdata_t file_id data] will write out the Vdata+specs given in [data].
+      The combination of [read_vdata_t] and [write_vdata_t] should preserve the
+      original Vdata structure in the new file.
+  *)
+  let write_vdata_t file_id data =
+    let vdata_id = vs_attach file_id (-1l) "w" in
+    let field_name_array = Array.of_list (Pcre.split ~pat:"," data.fields) in
+    let field_defs =
+      Array.init (Array.length data.field_types)
+        (fun i -> ( data.field_types.(i), field_name_array.(i), data.field_orders.(i) ))
+    in
+    Array.iter
+      (fun (ftype, fname, forder) -> vs_fdefine vdata_id fname ftype forder)
+      field_defs;
+
+    vs_setname vdata_id data.vdata_name;
+    vs_setclass vdata_id data.vdata_class;
+    vs_setfields vdata_id data.fields;
+
+    vs_write vdata_id data.data data.n_records;
+
+    vs_detach vdata_id;
+    ()
+
+  (** [write_vdata_t_list file_id vdata_list] will write out each element of
+      [vdata_list] to [file_id] in order.
+  *)
+  let rec write_vdata_t_list file_id vdata_list =
+    match vdata_list with
+        hd :: tl ->
+          write_vdata_t file_id hd;
+          write_vdata_t_list file_id tl
+      | [] ->
+          ()
 
   (** This type holds the basic specs for SDS entries in a HDF4 file. *)
   type data_spec = {
