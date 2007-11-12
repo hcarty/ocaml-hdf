@@ -17,18 +17,6 @@ type vdata_t = {
   data : (int, int8_unsigned_elt, c_layout) Genarray.t;
 }
 
-(*
-let create_file filename =
-  let file_id = h_open filename DFACC_CREATE 100 in
-  v_start file_id;
-
-  let vdata_id = vs_attach file_id (-1l) "w" in
-  vs_fdefine vdata_id field_name DFNT_INT16 order;
-  vs_setfields vdata_id field_name;
-
-  let vdata_buf = Genarray.create 
-*)
-
 let prep_read () =
   let file = "2A23trmm_tmp.hdf" in
   let file_id = h_open file DFACC_READ 0 in
@@ -44,7 +32,7 @@ let prep_write () =
 let allocate_vdata_bigarray kind bytes =
   Bigarray.Genarray.create kind Bigarray.c_layout [|bytes|]
 
-let read_vdata_with_specs vdata_id =
+let read_vdata_t vdata_id =
   let (istat, n_records, interlace, fields, vdata_size, vdata_name) =
     vs_inquire vdata_id
   in
@@ -94,43 +82,24 @@ let vdata_map f file_id =
     if vdata_id = -1l then
       List.rev l
     else
-      loop ((f vdata_id) :: l) (vs_getid file_id vdata_ref)
+      let result = f vdata_id in
+      let _ = vs_detach vdata_id in
+      loop (result :: l) (vs_getid file_id vdata_ref)
   in
   loop [] vdata_ref_0
 
 let read_file filename =
   let file_id = h_open filename DFACC_READ 0 in
   v_start file_id;
-  (* TODO - Actually read the file... *)
+
+  let vdata = vdata_map read_vdata_t file_id in
+
   v_end file_id;
   h_close file_id;
-  ()
+  vdata
 
-(*
-let rec vdata_iter vdata_ref =
-  let vdata_id = vs_attach file_id vdata_ref "r" in
-  if vdata_id = (-1l) then
-    ()
-  else
-    let is_attr = vs_isattr vdata_id in
-    let () = Printf.printf "%d\n" is_attr in
-    let (istat, n_records, interlace, fields, vdata_size, vdata_name) =
-      vs_inquire vdata_id
-    in
-    vs_detach vdata_id;
-    if is_attr = 1 then
-      let () = Printf.printf "%s is an attribute\n" vdata_name in
-      vdata_iter (vs_getid file_id vdata_ref)
-    else
-      vdata_iter (vs_getid file_id vdata_ref)
-*)
-
+(** [write_vdata file_id data] will write out the Vdata+specs given in [data]. *)
 let write_vdata file_id data =
-  (* Vdata *)
-  (*
-    let file_id = h_open hdf_filename DFACC_WRITE 0 in
-    v_start file_id;
-  *)
   let vdata_id = vs_attach file_id (-1l) "w" in
   let field_name_array = Array.of_list (Pcre.split ~pat:"," data.fields) in
   let field_defs =
@@ -148,7 +117,6 @@ let write_vdata file_id data =
   vs_write vdata_id data.data data.n_records;
 
   vs_detach vdata_id;
-  (* Return the vdata_id so the "next" one can be created *)
   ()
 
 let rec write_all_vdata file_id vdata_list =
