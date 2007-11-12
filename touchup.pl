@@ -17,6 +17,10 @@ my %manual_function_attributes = (
     }
 );
 
+my %returns_error_code = (
+    SDgetinfo => 1,
+);
+
 =begin
 Read in the file contents, return an array containing each of the lines.
 =cut
@@ -107,6 +111,18 @@ sub function_attributes {
     (keys %attributes) ? (keys %attributes) : ();
 }
 
+sub maybe_adjust_return_type {
+    my ($type, $name) = @_;
+
+    if (grep { /$name/ } (keys %returns_error_code)) {
+        print "Changing return type of $name to error code\n";
+        return "HDF_RESULT";
+    }
+    else {
+        return $type;
+    }
+}
+
 sub argument_attributes {
     my ($function, $type, $name) = @_;
 
@@ -131,7 +147,7 @@ sub argument_attributes {
         if (grep { /$name/ } (keys %{$manual_function_attributes{$function}->{parameter_attributes}})) {
             print "Manual parameter attribute(s) available for $name\n";
             # Add each manual attribute to the attribute record hash.
-            my $parameter_attributes = $manual_function_attributes{$name}->{parameter_attributes};
+            my $parameter_attributes = $manual_function_attributes{$function}->{parameter_attributes}->{$name};
             for (@$parameter_attributes) {
                 $attributes{$_} = 1;
             }
@@ -155,6 +171,7 @@ sub process_prototype {
         print "$line\n";
     }
     minimize_whitespace ($return_type, $function_name, $args);
+    $return_type = maybe_adjust_return_type($return_type, $function_name);
 
     # Hold attribute information for the whole prototype
     my @function_attributes = function_attributes $return_type, $function_name;

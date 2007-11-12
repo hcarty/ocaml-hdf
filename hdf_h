@@ -56,8 +56,8 @@
     hdf_err_code_t;
 
     // HDF routines
-    HDF_ID Hopen (const char *path, access_type acc_mode, int16 ndds);
-    HDF_RESULT Hclose (int32 file_id);
+    int32 Hopen (const char *path, access_type acc_mode, int16 ndds);
+    intn Hclose (int32 file_id);
     //int32 Hstartread (int32 file_id, uint16 tag, uint16 ref);
     //intn Hnextread (int32 access_id, uint16 tag, uint16 ref, intn origin);
     //intn Hexist (int32 file_id, uint16 search_tag, uint16 search_ref);
@@ -283,8 +283,8 @@
 
     // intn Vgetattr (int32 vgid, intn attrindex, void *values);
 
-    HDF_ID Vgetversion (int32 vgid);
-    HDF_RESULT VSfindex (int32 vsid, const char *fieldname, int32 * fldindex);
+    int32 Vgetversion (int32 vgid);
+    intn VSfindex (int32 vsid, const char *fieldname, int32 * fldindex);
 
     // intn VSsetattr (int32 vsid, int32 findex, const char *attrname, int32 datatype, int32 count, const void *values);
 
@@ -392,10 +392,10 @@
     int32 VSgetversion (int32 vkey);
     int32 VSdelete (int32 f, int32 ref);
     int32 VSappendable (int32 vkey, int32 blk);
-    HDF_RESULT VSsetfields (int32 vkey, const char *fields);
-    HDF_RESULT VSfdefine (int32 vkey, const char *field,
+    intn VSsetfields (int32 vkey, const char *fields);
+    intn VSfdefine (int32 vkey, const char *field,
             hdf_data_type localtype, int32 order);
-    HDF_INFO VFnfields (int32 vkey);
+    int32 VFnfields (int32 vkey);
     char *VFfieldname (int32 vkey, int32 idx);
     hdf_data_type VFfieldtype (int32 vkey, int32 idx);
     int32 VFfieldisize (int32 vkey, int32 idx);

@@ -20,8 +20,6 @@
     typedef float float32;
     typedef double float64;
     typedef [errorcheck(hdf_check_result), errorcode] intn HDF_RESULT;
-    typedef [errorcheck(hdf_check_id)] long HDF_ID;
-    typedef [errorcheck(hdf_check_info)] long HDF_INFO;
 
     // XXX A HORRIBLE HACK to get around typedef clashes
 #define int32 long
