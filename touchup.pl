@@ -9,6 +9,7 @@ use constant MAX_VAR_DIMS => 32;
 my $input_file = $ARGV[0];
 my $output_file = $ARGV[0] . ".inc";
 
+# Attributes for functions and their arguments.
 my %manual_function_attributes = (
     SDgetinfo => {
         parameter_attributes => {
@@ -16,12 +17,23 @@ my %manual_function_attributes = (
         }
     }
 );
-
+# Functions which simply return a 1 or 0 for success vs failure.
 my %returns_error_code = (
     SDgetinfo => 1,
+    SDfileinfo => 1,
+    Hclose => 1,
+    Vinitialize => 1,
+    Vfinish => 1,
+    VSgetclass => 1,
+    VSdetach => 1,
+    VSsetname => 1,
+    VSsetclass => 1,
+    VSsetinterlace => 1,
+    VSsetfields => 1,
+    VSfdefine => 1,
 );
 
-=begin
+=head2 read_file
 Read in the file contents, return an array containing each of the lines.
 =cut
 sub read_file {
@@ -32,7 +44,7 @@ sub read_file {
     return @lines;
 }
 
-=begin
+=head2 clean_up
 Some initial code cleanup.
 This:
  * Removes comments
@@ -70,6 +82,17 @@ sub make_attribute_string {
     return "[" . (join ', ', @_) . "]";
 }
 
+=head2 minimize_whitespace
+Description:
+Strip leading, trailing whitespace from each argument.  Also compress any
+internal whitespace to a single space character.
+
+Arguments:
+Array of string to modify (they are modified in place!)
+
+Returns:
+Nothing important.
+=cut
 sub minimize_whitespace {
     for (@_) {
         # Strip leading
@@ -81,6 +104,16 @@ sub minimize_whitespace {
     }
 }
 
+=head2 function_attributes
+Description:
+Given a function name and return type, determine its attributes.
+
+Arguments:
+1. Function return type
+2. Function name
+
+Returns:
+=cut
 sub function_attributes {
     my ($type, $name) = @_;
 
@@ -111,6 +144,18 @@ sub function_attributes {
     (keys %attributes) ? (keys %attributes) : ();
 }
 
+=head2 maybe_adjust_return_type
+Description:
+If appropriate, change the return type of the given function so that "failure"
+return values raise exceptions.
+
+Arguments:
+1. Original return type of the function.
+2. Function name.
+
+Returns:
+Function return type that should be used.
+=cut
 sub maybe_adjust_return_type {
     my ($type, $name) = @_;
 
@@ -123,6 +168,20 @@ sub maybe_adjust_return_type {
     }
 }
 
+=head2 argument_attributes
+Description:
+Determine appropriate attributes for function arguments.
+
+Arguments:
+1. Function name
+2. Attribute type
+3. Attribute name
+
+Returns:
+Array of argument attributes
+OR
+undef if there are no attributes for the given argument
+=cut
 sub argument_attributes {
     my ($function, $type, $name) = @_;
 
@@ -157,7 +216,7 @@ sub argument_attributes {
     (keys %attributes) ? [keys %attributes] : undef;
 }
 
-=begin
+=head2 process_prototype
 Line-by-line processing of the function prototypes.
 =cut
 sub process_prototype {

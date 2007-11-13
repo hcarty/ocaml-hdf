@@ -411,7 +411,6 @@ struct
 
   (** [read_sds_t_list sd_id] returns a list of the SDS contents of [sd_id] *)
   let read_sds_t_list (InterfaceID sd_id) =
-    let (_, number_sds, _) = sd_fileinfo sd_id in
     let rec f i =
       try
         let info = get_info (InterfaceID sd_id) (DataID i) in
@@ -513,7 +512,7 @@ struct
     let (istat, n_records, interlace, fields, vdata_size, vdata_name) =
       vs_inquire vdata_id
     in
-    let (_, vdata_class) = vs_getclass vdata_id in
+    let vdata_class = vs_getclass vdata_id in
     let num_attrs = vs_fnattrs vdata_id (-1l) in
     let num_fields = Int32.to_int (vf_nfields vdata_id) in
     let field_orders =
@@ -565,7 +564,7 @@ struct
         List.rev l
       else
         let result = f vdata_id in
-        let _ = vs_detach vdata_id in
+        let () = vs_detach vdata_id in
         loop (result :: l) (vs_getid file_id vdata_ref)
     in
     loop [] vdata_ref_0
