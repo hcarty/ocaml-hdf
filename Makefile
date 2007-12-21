@@ -1,4 +1,4 @@
-OCAMLMAKEFILE = /home/hcarty/Applications/godi/share/OCamlMakefile
+OCAMLMAKEFILE = ../inc/OCamlMakefile
 ANNOTATE = yes
 PACKS = bigarray extbigarray pcre
 LIBS =
