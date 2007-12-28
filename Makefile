@@ -4,10 +4,10 @@ PACKS = bigarray extbigarray pcre
 LIBS =
 OCAMLLIBPATH =
 INCDIRS=/usr/include/hdf
-LIBDIRS=/usr/lib/hdf
+LIBDIRS=/usr/lib/hdf $(OCAMLLIBPATH)
 EXTLIBDIRS =
 
-CLIBS = mfhdf df z jpeg
+CLIBS = mfhdf df z jpeg camlidl
 CFLAGS = -g
 
 # We turn on debugger support in all our modules for now.
