@@ -35,7 +35,7 @@
 //        (int32 sdsid, void * pmax, void * pmin);
 
     int32 SDcreate
-        (int32 fid, const char *name, int32 nt, int32 rank, int32 *dimsizes);
+        (int32 fid, const char *name, hdf_data_type nt, int32 rank, int32 *dimsizes);
 
     int32 SDgetdimid
         (int32 sdsid, intn number);

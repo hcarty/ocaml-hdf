@@ -109,6 +109,16 @@ let ( _data_type_from_t : t -> data_t ) = function
   | Float32 _ -> `float32
   | Float64 _ -> `float64
 
+(** Get a HDF type from a Hdf.t *)
+let _hdf_type_from_t = function
+    Int8 _ -> DFNT_INT8
+  | UInt8 _ -> DFNT_UINT8
+  | Int16 _ -> DFNT_INT16
+  | UInt16 _ -> DFNT_UINT16
+  | Int32 _ -> DFNT_INT32
+  | Float32 _ -> DFNT_FLOAT32
+  | Float64 _ -> DFNT_FLOAT64
+
 (** [dims data] returns an array holding the dimensions of [data]. *)
 let dims data =
   let f x = Bigarray.Genarray.dims x in
@@ -350,7 +360,7 @@ struct
         method data = data
         method name = sds_name
         method dimsizes = Array.sub dimsizes 0 (Int32.to_int rank)
-        method data_type = hdf_datatype_to_mlvariant data_type
+        method data_type = data_type
         method num_attrs = num_attrs
       end
     )
@@ -375,48 +385,26 @@ struct
     in
     f 0l
 
-  (*
-  (** [read_sds_t_list sd_id] returns a list of the SDS contents of [sd_id] *)
-  let read_sds_t_list (InterfaceID sd_id) =
-    let rec f i =
+  (** [read_all sdid] returns a list of the SDS contents of [sdid] *)
+  let read_all interface =
+    let rec f index =
       try
-        let info = get_info (InterfaceID sd_id) (DataID i) in
-        let this_sds = { sds_name = info.name; sds_type = info.data_type;
-                         sds_dimensions = info.dimensions;
-                         data = get_data_by_index (InterfaceID sd_id) info.index;
-                       }
-        in
-        this_sds :: f (Int32.add i 1l)
+        (read_data ~index interface) :: f (Int32.add index 1l)
       with
           (* TODO - This isn't a very good error checking method. *)
         Failure x ->
-          if i > 0l then
+          if index > 0l then
             []
           else
             failwith x
     in
     f 0l
-  *)
 
-  (*
-  (** [create sd_id name data_type dimensions] creates an entry in [sd_id] named
-      [name] of type [data_type] with the given [dimensions].
-  *)
-  let create (InterfaceID sd_id) name data_type dimensions =
-    let dims =
-      Bigarray.genarray_of_array1
-      (Bigarray.Array1.of_array Bigarray.int Bigarray.c_layout dimensions)
-    in
-    let data_type_string = _string_from_data_type data_type in
-    DataID (c_create sd_id name data_type_string (Int32.of_int (Array.length dimensions)) dims)
-  *)
-
-  (*
   (** [write_data sds_id data] creates an entry and writes [data] to the file
-      referenced by [sd_id].
+      referenced by [sds_id].
   *)
-  let write_data (DataID sds_id) data =
-    let f x = c_write_data sds_id x in
+  let write_data sds_id data =
+    let f x = sd_writedata sds_id x in
     match data with
         Int8 x -> f x
       | UInt8 x -> f x
@@ -427,11 +415,12 @@ struct
       | Float64 x -> f x
 
   (** [create_data sd_id name data] - create and write an SDS named [name] *)
-  let create_data sd_id name data =
-    let sds_id = create sd_id name (_data_type_from_t data) (dims data) in
-    write_data sds_id data
-  *)
-
+  let create_data interface name sds =
+    let sds_id =
+      sd_create interface name (_hdf_type_from_t sds)
+        (Array.map Int32.of_int (dims sds))
+    in
+    write_data sds_id sds
 end
 
 module Vdata =
@@ -507,8 +496,8 @@ struct
         method n_records = n_records
         method interlace = interlace
         method fields = fields
-        method vdata_size = vdata_size
-        method vdata_name = vdata_name
+        method size = vdata_size
+        method name = vdata_name
         method vdata_class = vdata_class
         method num_attrs = num_attrs
         method num_fields = num_fields
@@ -548,20 +537,13 @@ struct
     in
     loop [] vdata_ref_0
 
-  (** [read_vdata_t_list filename] will return a list of [vdata_t], one for each
-      Vdata in [filename].  The data in the returned list are in the same order
-      as those in [filename].
+  (** [read_all file_id] will return a list of Vdata objects, one for each
+      Vdata in [file_id].  The data in the returned list are in the same order
+      as those in [file_id].
 
   *)
-  let read_data_list filename =
-    let file_id = h_open filename DFACC_READ 0 in
-    v_start file_id;
-
-    let vdata_list = vdata_read_map read_data_by_id file_id in
-
-    v_end file_id;
-    h_close file_id;
-    vdata_list
+  let read_all interface =
+    vdata_read_map read_data_by_id interface
 
   (** [write_vdata file_id data] will write out the Vdata+specs given in [data].
       The combination of [read_vdata_t] and [write_vdata_t] should preserve the
@@ -578,7 +560,7 @@ struct
       (fun (ftype, fname, forder) -> vs_fdefine vdata_id fname ftype forder)
       field_defs;
 
-    vs_setname vdata_id data#vdata_name;
+    vs_setname vdata_id data#name;
     vs_setclass vdata_id data#vdata_class;
     vs_setfields vdata_id data#fields;
 
