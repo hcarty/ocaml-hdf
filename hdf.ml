@@ -68,7 +68,7 @@ type t =
 exception BadDataType of string * string
 
 (** Exception raised if reading or writing data fails *)
-exception DataFailure of string
+exception HdfError of string
 
 (** {6 Internal library functions } *)
 
@@ -366,7 +366,7 @@ struct
       end
     )
 
-  (** [get_spec_list sd_id] returns a list of the information given by {!Hdf.get_sd_info}
+  (** [get_spec_list sd_id] returns a list of the information given by {!sd_getinfo}
       for each SDS available through the given [sd_id] interface.
   *)
   let get_spec_list interface =
@@ -394,10 +394,11 @@ struct
       with
           (* TODO - This isn't a very good error checking method. *)
         Failure x ->
-          if index > 0l then
+          let error_id = he_value 0l in
+          if index > 0l && error_id = DFE_NONE then
             List.rev l
           else
-            failwith x
+            raise (HdfError ("Hdf.SD.read_all: " ^ (he_string error_id)))
     in
     f 0l []
 
@@ -417,15 +418,19 @@ struct
 
   (** [create_data sd_id name data] - create and write an SDS named [name] *)
   let create_data interface name sds =
-    let sds_id =
-      match 
-        sd_create interface name (_hdf_type_from_t sds)
-          (Array.map Int32.of_int (dims sds))
-      with
-          (-1l) -> raise (DataFailure "Hdf.SD.create_data: unable to create SDS entry")
-        | x -> x
-    in
-    write_data sds_id sds
+    match 
+      sd_create interface name (_hdf_type_from_t sds)
+        (Array.map Int32.of_int (dims sds))
+    with
+        (-1l) ->
+          let error_str = he_string (he_value 0l) in
+          raise (
+            HdfError
+              ("Hdf.SD.create_data: unable to create SDS entry - " ^ error_str)
+          )
+      | sds_id ->
+          write_data sds_id sds;
+          sd_endaccess sds_id
 end
 
 module Vdata =
