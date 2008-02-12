@@ -45,6 +45,12 @@
 // Allow for ridiculously long exception strings... mainly in case of stupidly long filenames.
 #define MAX_EXCEPTION_MESSAGE_LENGTH 10000
 
+//
+//
+// FUNCTION RETURN VALUE CHECKS (used by camlidl)
+//
+//
+
 // Just raising an exception if an error is returned
 void hdf_check_result(intn result) {
     if (result == FAIL) {
@@ -73,472 +79,122 @@ void hdf_check_info(int32 result) {
     return;
 }
 
-const char* hdf_datatype_to_string(int datatype) {
-    switch (datatype) {
-        case DFNT_FLOAT32:
-            return "FLOAT32";
-            break;
-        case DFNT_FLOAT64:
-            return "FLOAT64";
-            break;
-        case DFNT_INT8:
-            return "INT8";
-            break;
-        case DFNT_UINT8:
-            return "UINT8";
-            break;
-        case DFNT_INT16:
-            return "INT16";
-            break;
-        case DFNT_UINT16:
-            return "UINT16";
-            break;
-        case DFNT_INT32:
-            return "INT32";
-            break;
-        case DFNT_UINT32:
-            return "UINT32";
-            break;
-        case DFNT_CHAR8:
-            return "CHAR8";
-            break;
-        default:
-            {
-                char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-                sprintf(exception_message, "Found an invalid data type: %d", datatype);
-                caml_failwith(exception_message);
-                // We won't get to this point, but whatever...
-                return "FAIL";
-            }
-    }
-}
+//
+//
+// OCAML VARIANTS TO/FROM HDF DATA TYPES
+//
+//
 
-int32 string_to_hdf_datatype(const char* datatype_string) {
-    if ( strcmp(datatype_string, "FLOAT32") == 0 ) {
-        return DFNT_FLOAT32;
-    }
-    else if ( strcmp(datatype_string, "FLOAT64") == 0 ) {
-        return DFNT_FLOAT64;
-    }
-    else if ( strcmp(datatype_string, "INT8") == 0 ) {
-        return DFNT_INT8;
-    }
-    else if ( strcmp(datatype_string, "UINT8") == 0 ) {
-        return DFNT_UINT8;
-    }
-    else if ( strcmp(datatype_string, "INT16") == 0 ) {
-        return DFNT_INT16;
-    }
-    else if ( strcmp(datatype_string, "UINT16") == 0 ) {
-        return DFNT_UINT16;
-    }
-    else if ( strcmp(datatype_string, "INT32") == 0 ) {
-        return DFNT_INT32;
-    }
-    else if ( strcmp(datatype_string, "UINT32") == 0 ) {
-        return DFNT_UINT32;
-    }
-    else if ( strcmp(datatype_string, "CHAR8") == 0 ) {
-        return DFNT_CHAR8;
-    }
+/* Called from OCaml (usually?).  This will give a variant which matches the
+   given HDF data type value. */
+value hdf_datatype_to_mlvariant(value datatype) {
+    CAMLparam1(datatype);
+    CAMLlocal1(datatype_variant);
+
+#define CASE_HDF(hdf, txt)                      \
+    if (Int32_val(datatype) == hdf) {           \
+        datatype_variant = hash_variant(txt);   \
+    }                                           \
+
+    CASE_HDF(DFNT_FLOAT32, "float32")
+    else CASE_HDF(DFNT_FLOAT64, "float64")
+    else CASE_HDF(DFNT_INT8, "int8")
+    else CASE_HDF(DFNT_UINT8, "uint8")
+    else CASE_HDF(DFNT_INT16, "int16")
+    else CASE_HDF(DFNT_UINT16, "uint16")
+    else CASE_HDF(DFNT_INT32, "int32")
+    else CASE_HDF(DFNT_UINT32, "uint32")
+    else CASE_HDF(DFNT_CHAR8, "char8")
     else {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Found an invalid data type: %s", datatype_string);
+        sprintf(exception_message, "hdf_datatype_to_mlvariant: Found an unsupported data type: %d", Int32_val(datatype));
         caml_failwith(exception_message);
-        // We won't get to this point, but whatever...
-        return -1;
+        datatype_variant = Val_int(-1);
     }
+
+#undef CASE_HDF
+
+    CAMLreturn(datatype_variant);
 }
 
-// For information on the following functions, see the HDF4 docs.
+int32 mlvariant_to_hdf_datatype(value datatype_variant) {
+    CAMLparam1(datatype_variant);
 
-/* Test a filename to see if it is a proper HDF4 file. */
-value ml_Hishdf(value filename) {
-    CAMLparam1(filename);
+    int32 datatype;
+    int variant_number;
+    variant_number = Int_val( hdf_datatype_to_mlvariant(datatype_variant) );
 
-    if (Hishdf( String_val(filename) ) == TRUE) {
-        CAMLreturn( Val_true );
-    }
+#define CASE_VARIANT(txt, hdf)                                  \
+    if ( Int_val( hash_variant(txt) ) == variant_number ) {     \
+        datatype = hdf;                                         \
+    }                                                           \
+
+    CASE_VARIANT("float32", DFNT_FLOAT32)
+    else CASE_VARIANT("float64", DFNT_FLOAT64)
+    else CASE_VARIANT("int8", DFNT_INT8)
+    else CASE_VARIANT("uint8", DFNT_UINT8)
+    else CASE_VARIANT("int16", DFNT_INT16)
+    else CASE_VARIANT("uint16", DFNT_UINT16)
+    else CASE_VARIANT("int32", DFNT_INT32)
+    else CASE_VARIANT("uint32", DFNT_UINT32)
+    else CASE_VARIANT("char8", DFNT_CHAR8)
     else {
-        CAMLreturn( Val_false );
-    }
-}
-
-/* Open a HDF file */
-// XXX This opens the file read-only.  I'll fix that later.
-// XXX Add exception checks
-value ml_Hopen(value filename) {
-    CAMLparam1(filename);
-
-    CAMLreturn( caml_copy_int32( Hopen( String_val(filename), DFACC_READ, 0 ) ) );
-}
-
-/* Close a HDF file. */
-value ml_Hclose(value file_id) {
-    CAMLparam1(file_id);
-
-    CAMLreturn( Val_int( Hclose( Int32_val(file_id) ) ) );
-}
-
-/* Open a path to the HDF SDS data interface. */
-// XXX Add exception checks
-value ml_SDstart(value filename) {
-    CAMLparam1(filename);
-
-    CAMLreturn( caml_copy_int32( SDstart( String_val(filename), DFACC_READ ) ) );
-}
-
-/* Close a connection started with SDstart. */
-value ml_SDend(value sd_id) {
-    CAMLparam1(sd_id);
-
-    CAMLreturn( Val_int( SDend( Int32_val(sd_id) ) ) );
-}
-
-/* Open a path to the HDF Vdata interface. */
-// XXX Add exception checks
-value ml_Vstart(value file_id) {
-    CAMLparam1(file_id);
-
-    CAMLreturn( caml_copy_int32( Vstart( Int32_val(file_id) ) ) );
-}
-
-/* Close a connection started with Vstart. */
-// XXX Add exception checks
-value ml_Vend(value file_id) {
-    CAMLparam1(file_id);
-
-    CAMLreturn( Val_int( Vend( Int32_val(file_id) ) ) );
-}
-
-/* Get the specs for a SDS data set. */
-value ml_SDgetinfo(value sd_id, value sd_index) {
-    CAMLparam2(sd_id, sd_index);
-    CAMLlocal2 (information_tuple, dimension_array);
-
-    // Get some basic information about this data.
-    struct sd_info_struct sd_information;
-    sd_information = c_SDgetinfo( Int32_val(sd_id), Int32_val(sd_index) );
-
-    // Allocate an OCaml array to hold the dimensions of the HDF field.
-    dimension_array = caml_alloc( sd_information.rank, 0 );
-    int i;
-    for ( i = 0; i < sd_information.rank; ++i ) {
-        Store_field( dimension_array, i, Val_int(sd_information.dimsizes[i]) );
+        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+        sprintf(exception_message, "mlvariant_to_hdf_datatype: Found an unsupported data type: %d", variant_number);
+        caml_failwith(exception_message);
+        // This does not/should not matter... but it's here anyway.
+        datatype = -1;
     }
 
-    // Allocate space for the information from SDgetinfo, plus the sd_index.
-    information_tuple = caml_alloc_tuple(5);
-    Store_field( information_tuple, 0, sd_index);
-    Store_field( information_tuple, 1, caml_copy_string(sd_information.sds_name) );
-    Store_field( information_tuple, 2, caml_copy_string(sd_information.data_type_string) );
-    Store_field( information_tuple, 3, dimension_array );
-    Store_field( information_tuple, 4, Val_int(sd_information.num_attrs) );
+#undef CASE_VARIANT
 
-    CAMLreturn (information_tuple);
+    CAMLreturnT(int32, datatype);
 }
 
-/* A little wrapper around SDgetinfo. */
-struct sd_info_struct c_SDgetinfo(int32 sd_id, int32 sd_index) {
-    int32 sds_id;
-    sds_id = SDselect(sd_id, sd_index);
+int caml_int32_array_length(value ml_array) {
+    CAMLparam1(ml_array);
 
-    // Get some basic information about this data.
-    struct sd_info_struct sd_information;
-    int32 status;
-    status = SDgetinfo(sds_id, sd_information.sds_name, &sd_information.rank, sd_information.dimsizes, &sd_information.data_type, &sd_information.num_attrs);
+    CAMLreturnT(int, Wosize_val(ml_array));
+}
 
+void copy_caml_int32_array(value ml_array, int32* c_array) {
+    CAMLparam1(ml_array);
+
+    int len, i;
+    len = caml_int32_array_length(ml_array);
+
+    for (i = 0; i < len; i++) {
+        c_array[i] = Int32_val( Field(ml_array, i) );
+    }
+
+    CAMLreturn0;
+}
+
+//
+//
+// SDS READING/WRITING
+//
+//
+
+/* Read and write SDS entries */
+value ml_SDreaddata(value sdsid, value ml_start, value ml_end, value data) {
+    CAMLparam4(sdsid, ml_start, ml_end, data);
+
+    int status;
+    int32 start[caml_int32_array_length(ml_start)];
+    int32 end[caml_int32_array_length(ml_end)];
+
+    copy_caml_int32_array(ml_start, start);
+    copy_caml_int32_array(ml_end, end);
+
+    status = SDreaddata( Int32_val(sdsid), start, NULL, end, Data_bigarray_val(data) ); 
     if (status == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Unable to retrieve SD information: sd_id %d\n", sd_id);
-        caml_failwith(exception_message);
-    }
-
-    // Close everything up.
-    status = SDendaccess(sds_id);
-
-    strcpy( sd_information.data_type_string, hdf_datatype_to_string(sd_information.data_type) );
-
-    return sd_information;
-}
-
-// XXX Add exception throwing for errors
-value ml_SDreaddata(value sd_id, value sd_index, value data) {
-    CAMLparam3(sd_id, sd_index, data);
-
-    struct sd_info_struct sd_information;
-    sd_information = c_SDgetinfo( Int32_val(sd_id), Int32_val(sd_index) );
-
-    int32 sds_id;
-    sds_id = SDselect( Int32_val(sd_id), Int32_val(sd_index) );
-
-    int32 start[sd_information.rank];
-    int32 edges[sd_information.rank];
-
-    int num_elements;
-    num_elements = 1;
-    int i;
-    for (i = 0; i < sd_information.rank; i++) {
-        start[i] = 0;
-        edges[i] = sd_information.dimsizes[i];
-        num_elements *= sd_information.dimsizes[i];
-    }
-
-    // Read the data!
-    int32 status;
-    status = SDreaddata(sds_id, start, NULL, edges, Data_bigarray_val(data) ); 
-
-    if (status == FAIL) {
-        printf("Unable to read the SDS data with index %d.\n", Int32_val(sd_index));
-        exit(-1);
-    }
-
-    // Close everything up.
-    status = SDendaccess(sds_id);
-
-    CAMLreturn( caml_copy_string( sd_information.data_type_string ) );
-}
-
-// Get the index of a given Vdata by name.
-value ml_VSfind(value file_id, value vdata_name) {
-    CAMLparam2(file_id, vdata_name);
-    int32 index;
-    index = VSfind(Int32_val(file_id), String_val(vdata_name));
-    if (index == 0) {
-        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Can't get index from Vdata name: %s", String_val(vdata_name));
-        caml_failwith(exception_message);
-    }
-
-    CAMLreturn( caml_copy_int32(index) );
-}
-
-// XXX Maybe this shouldn't throw an exception here?  I dunno...
-int32 _vdata_ref_from_vd_index(int32 file_id, int32 vd_index) {
-    // Select the proper vdata reference by counting from the first...
-    // There may be a better way to do this, but this seems to be the easiest
-    // at this time.
-    int32 vdata_ref;
-    vdata_ref = -1;
-    int i;
-    for (i = 0; i <= vd_index; i++) {
-        vdata_ref = VSgetid(file_id, vdata_ref);
-        if (vdata_ref == FAIL) {
-            char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-            sprintf(exception_message, "Unable to attach to Vdata index: %d\n", vd_index);
-            caml_failwith(exception_message);
-        }
-    }
-    return vdata_ref;
-}
-
-// XXX Maybe this shouldn't throw an exception here?  I dunno...
-int32 _vd_index_from_vdata_ref(int32 file_id, int32 target_vdata_ref) {
-    // Select the proper vdata reference by counting from the first...
-    // There may be a better way to do this, but this seems to be the easiest
-    // at this time.
-    int32 vdata_ref;
-    vdata_ref = -1;
-    int32 i;
-    i = -1;
-    while (vdata_ref != target_vdata_ref) {
-        vdata_ref = VSgetid(file_id, vdata_ref);
-        if (vdata_ref == FAIL) {
-            char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-            sprintf(exception_message, "Unable to find Vdata ref: %d\n", target_vdata_ref);
-            caml_failwith(exception_message);
-        }
-        i++;
-    }
-    return i;
-}
-
-value ml_vd_index_from_vdata_ref(value file_id, value target_vdata_ref) {
-    CAMLparam2(file_id, target_vdata_ref);
-
-    CAMLreturn( caml_copy_int32( _vd_index_from_vdata_ref(Int32_val(file_id), Int32_val(target_vdata_ref)) ) );
-}
-
-struct vs_info_struct c_VSinquire(int32 vd_index, int32 vdata_id) {
-    // Get some information on the vdata.
-    struct vs_info_struct vs_info;
-    int32 status;
-    status = VSinquire(vdata_id, &vs_info.n_records, &vs_info.interlace_mode, vs_info.field_name_list, &vs_info.vdata_size, vs_info.vdata_name);
-    if (status == FAIL) {
-        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Can't get VSinquire for vd_index: %d", vd_index);
-        caml_failwith(exception_message);
-    }
-
-    return vs_info;
-}
-
-/* Read VS data sets */
-value ml_VSread(value vdata_id, value data, value n_records) {
-    CAMLparam3(vdata_id, data, n_records);
-
-    int32 status;
-    status = VSread(Int32_val(vdata_id), Data_bigarray_val(data), Int32_val(n_records), FULL_INTERLACE);
-    if (status != Int32_val(n_records)) {
-        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Unable to read all of the requested Vdata records: %d of %d\n",
-                status, Int32_val(n_records));
+        sprintf(exception_message, "Error in SDreaddata for sdsid: %d\n", Int32_val(sdsid));
         caml_failwith(exception_message);
     }
 
     CAMLreturn( Val_unit );
-}
-
-/* Read VS data sets */
-value ml_VSread_complicated(value file_id, value vd_index, value data) {
-    CAMLparam3(file_id, vd_index, data);
-
-    // Select the proper vdata reference by counting from the first...
-    // There may be a better way to do this, but this seems to be the easiest
-    // at this time.
-    int32 vdata_ref;
-    vdata_ref = _vdata_ref_from_vd_index( Int32_val(file_id), Int32_val(vd_index) );
-
-    // Attach to the VData we want.
-    int32 vdata_id;
-    vdata_id = VSattach( Int32_val(file_id), vdata_ref, "r");
-    if (vdata_id == FAIL) {
-        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Something's wrong with the vdata_id...\n");
-        caml_failwith(exception_message);
-    }
-/*
-    else if ( VSisattr(vdata_id) == TRUE ) {
-        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf( exception_message, "This is an attribute, not data: %d\n", Int_val(vd_index) );
-        caml_failwith(exception_message);
-    }
-*/
-
-    // Get some information on the vdata.
-    struct vs_info_struct vs_info;
-    vs_info = c_VSinquire( Int32_val(vd_index), vdata_id );
-
-    // Read the actual data from the file.
-    int32 status;
-    status = VSsetfields(vdata_id, vs_info.field_name_list);
-    // XXX Add exception throwing in case of failure...
-
-    // XXX I'm pretty sure FULL_INTERLACE is what we want here, but I'm not certain.
-    status = VSread(vdata_id, Data_bigarray_val(data), vs_info.n_records, FULL_INTERLACE);
-    if (status != vs_info.n_records) {
-        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Unable to read all of the reported Vdata records: %d of %d\n",
-                status, vs_info.n_records);
-        caml_failwith(exception_message);
-    }
-
-    // Close everything up.
-    status = VSdetach(vdata_id);
-    // XXX Add exception throwing in case of failure...
-
-    CAMLreturn( caml_copy_string( vs_info.vdata_name ) );
-}
-
-value ml_VSinquire(value file_id, value vd_index) {
-    CAMLparam2(file_id, vd_index);
-    CAMLlocal1(information_tuple);
-
-    // Select the proper vdata reference by counting from the first...
-    // There may be a better way to do this, but this seems to be the easiest
-    // at this time.
-    int32 vdata_ref;
-    vdata_ref = _vdata_ref_from_vd_index( Int32_val(file_id), Int32_val(vd_index) );
-
-    // Attach to the VData we want.
-    int32 vdata_id;
-    vdata_id = VSattach( Int32_val(file_id), vdata_ref, "r");
-    if (vdata_id == FAIL) {
-        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Something's wrong with the vdata_id...\n");
-        caml_failwith(exception_message);
-    }
-
-    // Get some information on the vdata.
-    struct vs_info_struct vs_info;
-    vs_info = c_VSinquire( Int32_val(vd_index), vdata_id );
-
-    // Close everything up.
-    int32 status;
-    status = VSdetach(vdata_id);
-    // XXX Add exception throwing in case of failure...
-
-    // Allocate space for the information from SDgetinfo, plus the sd_index.
-    information_tuple = caml_alloc_tuple(5);
-    Store_field( information_tuple, 0, vd_index );
-    Store_field( information_tuple, 1, caml_copy_string(vs_info.vdata_name) );
-    Store_field( information_tuple, 2, caml_copy_string(vs_info.field_name_list) );
-    Store_field( information_tuple, 3, Val_int(vs_info.vdata_size) );
-    Store_field( information_tuple, 4, Val_int(vs_info.n_records) );
-
-    CAMLreturn (information_tuple);
-}
-
-/**
- * HDF creation/writing routines.
- */
-
-/* Create a new HDF file for writing */
-// XXX This opens the file for writing only.  Existing files WILL BE DELETED.
-// XXX Add exception checks
-value ml_Hopen_create(value filename) {
-    CAMLparam1(filename);
-
-    CAMLreturn( caml_copy_int32( Hopen( String_val(filename), DFACC_CREATE, 0 ) ) );
-}
-
-/* Open an existing HDF file for read/write access
- * OR
- * if the file doesn't exist, create it.
- */
-// XXX Add exception checks
-value ml_Hopen_rw(value filename) {
-    CAMLparam1(filename);
-
-    CAMLreturn( caml_copy_int32( Hopen( String_val(filename), DFACC_WRITE, 0 ) ) );
-}
-
-/* Create a new SD file for writing.  Only really useful for pure-SD files. */
-// XXX This opens the file for writing only.  Existing files WILL BE DELETED.
-// XXX Add exception checks
-value ml_SDstart_create(value filename) {
-    CAMLparam1(filename);
-
-    CAMLreturn( caml_copy_int32( SDstart( String_val(filename), DFACC_CREATE ) ) );
-}
-
-/* Open an EXISTING SD file for read/write access.  Returns an error if the file
- * does not exist.
- */
-// XXX Add exception checks
-value ml_SDstart_rw(value filename) {
-    CAMLparam1(filename);
-
-    CAMLreturn( caml_copy_int32( SDstart( String_val(filename), DFACC_WRITE ) ) );
-}
-
-value ml_SDcreate(value sd_id, value name, value data_type_string, value rank, value dimsizes) {
-    CAMLparam5(sd_id, name, data_type_string, rank, dimsizes);
-
-    int32 data_type;
-    data_type = string_to_hdf_datatype( String_val(data_type_string) );
-
-    CAMLreturn(
-        caml_copy_int32(
-            SDcreate(
-                Int32_val(sd_id),
-                String_val(name),
-                data_type,
-                Int32_val(rank),
-                Data_bigarray_val(dimsizes)
-            )
-        )
-    );
 }
 
 value ml_SDwritedata(value sds_id, value data) {
@@ -558,58 +214,29 @@ value ml_SDwritedata(value sds_id, value data) {
     // XXX Check for errors, and throw those exceptions!!
     if (status == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Failure with SDwritedata.");
+        sprintf(exception_message, "Error with SDwritedata.");
         caml_failwith(exception_message);
     }
 
     CAMLreturn( Val_unit );
 }
 
-value ml_SDendaccess(value sds_id) {
-    CAMLparam1(sds_id);
+//
+//
+// VDATA READING/WRITING
+//
+//
 
-    CAMLreturn( Val_int( SDendaccess( Int32_val( sds_id ) ) ) );
-}
+/* Read and write VS data sets */
+value ml_VSread(value vdata_id, value data, value n_records) {
+    CAMLparam3(vdata_id, data, n_records);
 
-value ml_VSattach_create(value file_id) {
-    CAMLparam1(file_id);
-
-    int32 vdata_id;
-    // Create a new vdata.
-    vdata_id = VSattach( Int32_val(file_id), -1, "w" );
-
-    if (vdata_id == FAIL) {
+    int32 status;
+    status = VSread(Int32_val(vdata_id), Data_bigarray_val(data), Int32_val(n_records), FULL_INTERLACE);
+    if (status != Int32_val(n_records)) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Unable to create new vdata.");
-        caml_failwith(exception_message);
-    }
-
-    CAMLreturn( caml_copy_int32( vdata_id ) );
-}
-
-value ml_VSfdefine(value vdata_id, value fieldname, value data_type_string, value order) {
-    CAMLparam4(vdata_id, fieldname, data_type_string, order);
-
-    int32 data_type;
-    data_type = string_to_hdf_datatype( String_val(data_type_string) );
-
-    if ( VSfdefine( Int32_val(vdata_id), String_val(fieldname), data_type, Int_val(order) ) == FAIL ) {
-        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Failure defining new vdata field: %s", String_val(fieldname) );
-        caml_failwith(exception_message);
-    }
-
-    CAMLreturn( Val_unit );
-}
-
-value ml_VSsetfields(value vdata_id, value field_name_list) {
-    CAMLparam2(vdata_id, field_name_list);
-
-    int result;
-    result = VSsetfields( Int32_val(vdata_id), String_val(field_name_list) );
-    if (result == FAIL) {
-        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Failure setting vdata fields: %s", String_val(field_name_list) );
+        sprintf(exception_message, "VSread: Unable to read all of the requested Vdata records: %d of %d\n",
+                status, Int32_val(n_records));
         caml_failwith(exception_message);
     }
 
@@ -624,50 +251,205 @@ value ml_VSwrite(value vdata_id, value databuf, value n_records) {
     records_written = VSwrite( Int32_val(vdata_id), (uchar8*)Data_bigarray_val(databuf), Int32_val(n_records), FULL_INTERLACE);
     if (records_written == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Failure with VSwrite.");
+        sprintf(exception_message, "Error with VSwrite.");
         caml_failwith(exception_message);
     }
     else if ( records_written != Int32_val(n_records) ) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Written records (%d) not equal to given records (%d)", records_written, Int32_val(n_records));
+        sprintf(exception_message, "VSwrote: Written records (%d) not equal to given records (%d)", records_written, Int32_val(n_records));
         caml_failwith(exception_message);
     }
 
     CAMLreturn( Val_unit );
 }
 
-value ml_VSsetname(value vdata_id, value vdata_name) {
-    CAMLparam2(vdata_id, vdata_name);
+//
+//
+// ATTRIBUTE READING/WRITING
+//
+//
 
-    if ( VSsetname( Int32_val(vdata_id), String_val(vdata_name) ) == FAIL ) {
+value ml_SDreadattr(value id, value idx, value buf) {
+    CAMLparam3(id, idx, buf);
+
+    int status;
+    status =
+        SDreadattr( Int32_val(id), Int32_val(idx), Data_bigarray_val(buf) );
+    if (status == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Failure with VSsetname: %s", String_val(vdata_name));
+        sprintf(exception_message, "Error reading reading attribute, index: %d",
+                Int32_val(idx));
         caml_failwith(exception_message);
     }
 
     CAMLreturn( Val_unit );
 }
 
-value ml_VSsetclass(value vdata_id, value vdata_class) {
-    CAMLparam2(vdata_id, vdata_class);
+value ml_SDsetattr(value id, value name, value nt, value count, value data) {
+    CAMLparam5(id, name, nt, count, data);
 
-    if ( VSsetclass( Int32_val(vdata_id), String_val(vdata_class) ) == FAIL ) {
+    int status;
+    status =
+        SDsetattr( Int32_val(id), String_val(name), Int32_val(nt),
+                   Int32_val(count), Data_bigarray_val(data) );
+    if (status == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Failure with VSsetclass: %s", String_val(vdata_class));
+        sprintf(exception_message, "Error reading setting attribute, name: %s",
+                String_val(name));
         caml_failwith(exception_message);
     }
 
     CAMLreturn( Val_unit );
 }
 
-value ml_VSdetach(value vdata_id) {
-    CAMLparam1(vdata_id);
+//
+//
+// FILL VALUE SETTING/GETTING
+//
+//
 
-    if ( VSdetach( Int32_val(vdata_id) ) == FAIL ) {
+value _ml_SDgetfillvalue(value sdsid, int32 fill_type) {
+    CAMLparam1(sdsid);
+
+    // This will hold the fill value
+    CAMLlocal1(fill);
+
+    // Unless there is an error, one of these will be set to the proper fill value.
+    double fill_float;
+    int16 fill_int;
+    int32 fill_int32;
+    int status;
+    switch (fill_type) {
+        case DFNT_FLOAT64:
+        case DFNT_FLOAT32:
+            status = SDgetfillvalue(Int32_val(sdsid), (VOIDP)&fill_float);
+            fill = caml_copy_double(fill_float);
+            break;
+        case DFNT_INT8:
+        case DFNT_UINT8:
+        case DFNT_INT16:
+        case DFNT_UINT16:
+            status = SDgetfillvalue(Int32_val(sdsid), (VOIDP)&fill_int);
+            fill = Val_int(fill_int);
+            break;
+        case DFNT_INT32:
+            status = SDgetfillvalue(Int32_val(sdsid), (VOIDP)&fill_int32);
+            fill = caml_copy_int32(fill_int32);
+            break;
+        default: status = FAIL; break;
+    }
+    if (status == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Failure with VSdetach on id: %d", Int32_val(vdata_id));
+        sprintf(exception_message, "Error getting SDS fill value.");
+        caml_failwith(exception_message);
+    }
+
+    // WARNING!  This will have to be "cast" properly.
+    CAMLreturn( fill );
+}
+
+// Now make OCaml-callable "type-safe" interfaces to the function...
+value ml_SDgetfillvalue_float(value sdsid) {
+    CAMLparam1(sdsid);
+
+    // The specific type of float doesn't matter here
+    CAMLreturn( _ml_SDgetfillvalue(sdsid, DFNT_FLOAT32) );
+}
+
+value ml_SDgetfillvalue_int(value sdsid) {
+    CAMLparam1(sdsid);
+
+    // The specific type of int doesn't matter here
+    CAMLreturn( _ml_SDgetfillvalue(sdsid, DFNT_INT16) );
+}
+
+value ml_SDgetfillvalue_int32(value sdsid) {
+    CAMLparam1(sdsid);
+
+    // This, unlike the other functions, MUST be INT32
+    CAMLreturn( _ml_SDgetfillvalue(sdsid, DFNT_INT32) );
+}
+
+value _ml_SDsetfillvalue(value sdsid, int32 fill_type, value fill) {
+    CAMLparam2(sdsid, fill);
+
+    // Unless there is an error, one of these will be set to the proper fill value.
+    double fill_float;
+    int fill_int;
+    int32 fill_int32;
+    int status;
+    switch (fill_type) {
+        default: status = FAIL; break;
+        case DFNT_FLOAT64:
+        case DFNT_FLOAT32:
+            fill_float = Double_val(fill);
+            status = SDsetfillvalue(Int32_val(sdsid), (VOIDP)&fill_float); break;
+        case DFNT_INT8:
+        case DFNT_UINT8:
+        case DFNT_INT16:
+        case DFNT_UINT16:
+            fill_int = Int_val(fill);
+            status = SDsetfillvalue(Int32_val(sdsid), (VOIDP)&fill_int); break;
+        case DFNT_INT32:
+            fill_int32 = Int32_val(fill);
+            status = SDsetfillvalue(Int32_val(sdsid), (VOIDP)&fill_int32); break;
+    }
+    if (status == FAIL) {
+        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+        sprintf(exception_message, "Error setting SDS fill value.");
         caml_failwith(exception_message);
     }
 
     CAMLreturn( Val_unit );
 }
+
+// Now make OCaml-callable "type-safe" interfaces to the function...
+value ml_SDsetfillvalue_float(value sdsid, value fill) {
+    CAMLparam2(sdsid, fill);
+
+    // The specific type of float doesn't matter here
+    CAMLreturn( _ml_SDsetfillvalue(sdsid, DFNT_FLOAT32, fill) );
+}
+
+value ml_SDsetfillvalue_int(value sdsid, value fill) {
+    CAMLparam2(sdsid, fill);
+
+    // The specific type of int doesn't matter here
+    CAMLreturn( _ml_SDsetfillvalue(sdsid, DFNT_INT16, fill) );
+}
+
+value ml_SDsetfillvalue_int32(value sdsid, value fill) {
+    CAMLparam2(sdsid, fill);
+
+    // This, unlike the other functions, MUST be INT32
+    CAMLreturn( _ml_SDsetfillvalue(sdsid, DFNT_INT32, fill) );
+}
+
+/*****************************
+ TODO TODO TODO TODO TODO TODO
+ *****************************
+ The following functions have yet to be wrapped.
+*/
+//
+//
+// DIMENSION AND SCALE SETTING/GETTING
+//
+//
+
+//    intn SDgetdimscale
+//        (int32 id, void * data);
+
+//    intn SDsetdimscale
+//        (int32 id, int32 count, int32 nt, void * data);
+
+//
+//
+// RANGE GETTING/SETTING
+//
+//
+
+//    intn SDgetrange
+//        (int32 sdsid, void * pmax, void * pmin);
+
+//    intn SDsetrange
+//        (int32 sdsid, void * pmax, void * pmin);

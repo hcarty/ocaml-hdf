@@ -15,22 +15,36 @@ my %manual_function_attributes = (
         parameter_attributes => {
             dimsizes => ["length_is(" . MAX_VAR_DIMS . ")"]
         }
-    }
+    },
+    SDcreate => {
+        parameter_attributes => {
+            dimsizes => ["length_is(rank)"]
+        }
+    },
 );
 # Functions which simply return a 1 or 0 for success vs failure.
 my %returns_error_code = (
-    SDgetinfo => 1,
-    SDfileinfo => 1,
     Hclose => 1,
-    Vinitialize => 1,
+
+    Vend => 1,
     Vfinish => 1,
-    VSgetclass => 1,
+    Vinitialize => 1,
+    Vstart => 1,
+
     VSdetach => 1,
-    VSsetname => 1,
-    VSsetclass => 1,
-    VSsetinterlace => 1,
-    VSsetfields => 1,
     VSfdefine => 1,
+    VSgetclass => 1,
+    VSinquire => 1,
+    VSsetclass => 1,
+    VSsetfields => 1,
+    VSsetinterlace => 1,
+    VSsetname => 1,
+
+    SDdiminfo => 1,
+    SDend => 1,
+    SDendaccess => 1,
+    SDfileinfo => 1,
+    SDgetinfo => 1,
 );
 
 =head2 read_file

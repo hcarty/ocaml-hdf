@@ -6,16 +6,46 @@ module G = ExtBigarray
 (** {6 Low Level Functions} *)
 
 include Hdf_wrapper
-(* Carry over some naming conventions from hdf.h *)
+
+(** Carry over some naming conventions from hdf.h *)
 let hdf_open = h_open
 let hdf_close = h_close
 let v_start = v_initialize
 let v_end = v_finish
-(* Low-level functions wrapped by hand. *)
+
+(** A somewhat redundant type, used for communication with the C library *)
+type data_t = [ `int8 | `uint8 | `int16 | `uint16 | `int32 | `float32 | `float64 ]
+
+(** Convert HDF data type to a data_t *)
+external hdf_datatype_to_mlvariant: int32 -> data_t = "hdf_datatype_to_mlvariant"
+
+(** Low-level functions wrapped by hand to read and write data. *)
 external vs_write: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
   int32 -> unit = "ml_VSwrite"
 external vs_read: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
   int32 -> unit = "ml_VSread"
+
+(** [sd_writedata sdsid data] *)
+external sd_writedata: int32 ->
+  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDwritedata"
+
+(** [sd_readdata sdsid start end data] *)
+external sd_readdata: int32 -> int32 array -> int32 array ->
+  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDreaddata"
+
+(** SDS and file-wide attribute reading/writing *)
+external sd_readattr: int32 -> int32 ->
+  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDreadattr"
+external sd_setattr: int32 -> string -> int32 -> int32 ->
+  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDsetattr"
+
+(** SDS fill value reading/writing *)
+external sd_getfillvalue_float: int32 -> float = "ml_SDgetfillvalue_float"
+external sd_getfillvalue_int: int32 -> int = "ml_SDgetfillvalue_int"
+external sd_getfillvalue_int32: int32 -> int32 = "ml_SDgetfillvalue_int32"
+external sd_setfillvalue_float: int32 -> float -> unit = "ml_SDsetfillvalue_float"
+external sd_setfillvalue_int: int32 -> int -> unit = "ml_SDsetfillvalue_int"
+external sd_setfillvalue_int32: int32 -> int32 -> unit = "ml_SDsetfillvalue_int32"
 
 (** {6 Hight Level Functions} *)
 
@@ -33,11 +63,11 @@ type t =
   | Float32 of (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
   | Float64 of (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
-(** A somewhat redundant type... *)
-type data_t = [ `INT8 | `UINT8 | `INT16 | `UINT16 | `INT32 | `FLOAT32 | `FLOAT64 ]
-
 (** Exception raised if we try to get at data which we shouldn't or can't handle. *)
 exception BadDataType of string * string
+
+(** Exception raised if reading or writing data fails *)
+exception DataFailure of string
 
 (** {6 Internal library functions } *)
 
@@ -45,60 +75,39 @@ exception BadDataType of string * string
     [is_hdf filename] give true if [filename] is a HDF4 file, false if not.
     TODO - Remove this, it's in the lowlevel routines.
 *)
-external is_hdf: string -> bool = "ml_Hishdf"
+let is_hdf filename = match h_ishdf filename with 1 -> true | _ -> false
 
 (** Create a bigarray of the appropriate type, wrapped as an [Hdf.t]. *)
 let create (data_type : data_t) dimensions =
   let f x = Bigarray.Genarray.create x Bigarray.c_layout dimensions in
   match data_type with
-      `INT8 -> Int8 (f Bigarray.int8_signed)
-    | `UINT8 -> UInt8 (f Bigarray.int8_unsigned)
-    | `INT16 -> Int16 (f Bigarray.int16_signed)
-    | `UINT16 -> UInt16 (f Bigarray.int16_unsigned)
-    | `INT32 -> Int32 (f Bigarray.int32)
-    | `FLOAT32 -> Float32 (f Bigarray.float32)
-    | `FLOAT64 -> Float64 (f Bigarray.float64)
-
-(** Get a string representation for a given data type. *)
-let ( _string_from_data_type : data_t -> string ) = function
-    `INT8 -> "INT8"
-  | `UINT8 -> "UINT8"
-  | `INT16 -> "INT16"
-  | `UINT16 -> "UINT16"
-  | `INT32 -> "INT32"
-  | `FLOAT32 -> "FLOAT32"
-  | `FLOAT64 -> "FLOAT64"
+      `int8 -> Int8 (f Bigarray.int8_signed)
+    | `uint8 -> UInt8 (f Bigarray.int8_unsigned)
+    | `int16 -> Int16 (f Bigarray.int16_signed)
+    | `uint16 -> UInt16 (f Bigarray.int16_unsigned)
+    | `int32 -> Int32 (f Bigarray.int32)
+    | `float32 -> Float32 (f Bigarray.float32)
+    | `float64 -> Float64 (f Bigarray.float64)
 
 (** Get a string representation for a given data type. *)
 let ( _type_size_in_bytes : data_t -> int ) = function
-    `INT8
-  | `UINT8 -> 1
-  | `INT16
-  | `UINT16 -> 2
-  | `INT32 -> 4
-  | `FLOAT32 -> 4
-  | `FLOAT64 -> 8
-
-(** String to variant type tage. *)
-let ( _data_type_from_string : string -> data_t ) = function
-    "INT8" -> `INT8
-  | "UINT8" -> `UINT8
-  | "INT16" -> `INT16
-  | "UINT16" -> `UINT16
-  | "INT32" -> `INT32
-  | "FLOAT32" -> `FLOAT32
-  | "FLOAT64" -> `FLOAT64
-  | x -> raise (BadDataType ("Invalid or unhandled data type ", x))
+    `int8
+  | `uint8 -> 1
+  | `int16
+  | `uint16 -> 2
+  | `int32 -> 4
+  | `float32 -> 4
+  | `float64 -> 8
 
 (** Get a variant type tag from a Hdf.t *)
 let ( _data_type_from_t : t -> data_t ) = function
-    Int8 _ -> `INT8
-  | UInt8 _ -> `UINT8
-  | Int16 _ -> `INT16
-  | UInt16 _ -> `UINT16
-  | Int32 _ -> `INT32
-  | Float32 _ -> `FLOAT32
-  | Float64 _ -> `FLOAT64
+    Int8 _ -> `int8
+  | UInt8 _ -> `uint8
+  | Int16 _ -> `int16
+  | UInt16 _ -> `uint16
+  | Int32 _ -> `int32
+  | Float32 _ -> `float32
+  | Float64 _ -> `float64
 
 (** [dims data] returns an array holding the dimensions of [data]. *)
 let dims data =
@@ -293,80 +302,68 @@ module SD =
 struct
   type interface_id = InterfaceID of int32
   type data_id = DataID of int32
-  (** This type holds the basic specs for SDS entries in a HDF4 file. *)
-  type data_spec = {
-    index : data_id;
-    name : string;
-    data_type : data_t;
-    dimensions : int array;
-  }
 
-  type sds_t = {
-    sds_name : string;
-    sds_type : data_t;
-    sds_dimensions : int array;
-    data : t;
-  }
-
-  external c_open_file: string -> int32 = "ml_SDstart"
-
-  (** Open the Scientific Data Set (SDS) data interface for a HDF4 file.
-      [open_file filename] returns the sd_id for [filenames]'s interface.
-      This function opens the SDS interface in read-only mode.
-  *)
-  let open_file filename = InterfaceID (c_open_file filename)
-
-  external c_get_info: int32 -> int32 -> (int32 * string * string * int array * int) = "ml_SDgetinfo"
-  (** Get specs for an individual SDS entry.
-      [get_sd_info sd_id sd_index] gives [(sd_index, SDS name, data type string,
-      array of dimensions, num_attrs)]
-  *)
-
-  (** [get_info interface_id data_id] - Get specs for the given SDS entry. *)
-  let get_info (InterfaceID sd_id) (DataID i) =
-    let (sd_index, name, data_type_string, dimension_array, num_attrs) =
-      c_get_info sd_id i
+  (** [read_data ?name ?index interface] -
+      Must provide ONE of [name] OR [index].  It return an object containing
+      the SDS contents and related metadata. *)
+  let read_data ?name ?index interface =
+    let sds_id =
+      match name, index with
+          None, None
+        | Some _, Some _ -> raise (Invalid_argument "Hdf.SD.read_data")
+        | Some n, None -> sd_select interface (sd_nametoindex interface n)
+        | None, Some i -> sd_select interface i
     in
-    {
-      index = DataID sd_index;
-      name = name;
-      data_type = _data_type_from_string data_type_string;
-      dimensions = dimension_array
-    }
 
-  (** [c_get_data sd_id sd_index genarray] returns a string with the data type.
-      The actual data is stored in [genarray].
-  *)
-  external c_get_data: int32 -> int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
-    string = "ml_SDreaddata"
+    (* Remember only the first [rank] elements of [dimsizes] actually mean
+       anything for the SDS being read. *)
+    let (sds_name, rank, dimsizes, data_type, num_attrs) =
+      sd_getinfo sds_id
+    in
 
-  let get_data (InterfaceID sd_id) (DataID sd_index) data =
-    c_get_data sd_id sd_index data
-  (** [get_data sd_id sd_index genarray] returns a string with the data type.
-      The actual data is stored in [genarray].
-  *)
+    (* Create the Hdf.t which will hold the SDS contents *)
+    let data =
+      create
+        (hdf_datatype_to_mlvariant data_type)
+        (Array.init (Int32.to_int rank) (fun i -> Int32.to_int dimsizes.(i)))
+    in
 
-  external c_close_file: int32 -> int = "ml_SDend"
+    (* Always read the entire data set.  The "stride" option is set to NULL. *)
+    let start = Array.make (Int32.to_int rank) 0l in
+    let edges = Array.init (Int32.to_int rank) (fun i -> dimsizes.(i)) in
 
-  (** [close_file sd_id] closes the given SDS interface.
-      The return value indicates success or failure.  But this will change to
-      a return value of unit and the function will then throw an exception when
-      there is an error.
-  *)
-  let close_file (InterfaceID cs_id) = c_close_file cs_id
+    let f x = sd_readdata sds_id start edges x in
+    let () =
+      match data with
+          Int8 x -> f x
+        | UInt8 x -> f x
+        | Int16 x -> f x
+        | UInt16 x -> f x
+        | Int32 x -> f x
+        | Float32 x -> f x
+        | Float64 x -> f x
+    in
 
-  (** {6 Pure OCaml functions and wrappers}
-      These functions make a prettier, and hopefully more functional, interface to
-      underlying C library calls.
-  *)
+    sd_endaccess sds_id;
+    (
+      object
+        method data = data
+        method name = sds_name
+        method dimsizes = Array.sub dimsizes 0 (Int32.to_int rank)
+        method data_type = hdf_datatype_to_mlvariant data_type
+        method num_attrs = num_attrs
+      end
+    )
 
   (** [get_spec_list sd_id] returns a list of the information given by {!Hdf.get_sd_info}
       for each SDS available through the given [sd_id] interface.
   *)
-  let get_spec_list sd_id =
+  let get_spec_list interface =
     let rec f i =
       try
-        let info = get_info sd_id (DataID i) in
+        let sds_id = sd_select interface i in
+        let info = sd_getinfo sds_id in
+        sd_endaccess sds_id;
         info :: f (Int32.add i 1l)
       with
           (* TODO - This isn't a very good error checking method. *)
@@ -378,37 +375,7 @@ struct
     in
     f 0l
 
-  (** [get_index_from_name sd_id name] will return the index of the SDS named [name]. *)
-  let get_index_from_name sd_id name =
-    (List.find (fun x -> x.name = name) (get_spec_list sd_id)).index
-
-  (** Actually GET the data in to the bigarray. *)
-  let _get_data sd_id sd_index data =
-    let f x = get_data sd_id sd_index x in
-    match data with
-        Int8 x -> f x
-      | UInt8 x -> f x
-      | Int16 x -> f x
-      | UInt16 x -> f x
-      | Int32 x -> f x
-      | Float32 x -> f x
-      | Float64 x -> f x
-
-  (** [get_by_name interface_id data_name] returns the data called [data_name]. *)
-  let get_data_by_name sd_id name =
-    let sd_index = get_index_from_name sd_id name in
-    let specs = get_info sd_id sd_index in
-    let data = create specs.data_type specs.dimensions in
-    let _ = _get_data sd_id sd_index data in
-    data
-
-  (** [get_by_name interface_id data_name] returns the data called [data_name]. *)
-  let get_data_by_index sd_id sds_index =
-    let specs = get_info sd_id sds_index in
-    let data = create specs.data_type specs.dimensions in
-    let _ = _get_data sd_id sds_index data in
-    data
-
+  (*
   (** [read_sds_t_list sd_id] returns a list of the SDS contents of [sd_id] *)
   let read_sds_t_list (InterfaceID sd_id) =
     let rec f i =
@@ -429,17 +396,9 @@ struct
             failwith x
     in
     f 0l
-
-  external c_open_sd_create: string -> int32 = "ml_SDstart_create"
-
-  (** [open_sd_create filename] creates a new HDF4 file [filename] with an SDS interface.
   *)
-  let open_sd_create filename = InterfaceID (c_open_sd_create filename)
 
-  (** [c_create sd_id name datatype_string number_of_dimensions genarray_of_dimensions] *)
-  external c_create: int32 -> string -> string -> int32 ->
-    ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> int32 = "ml_SDcreate"
-
+  (*
   (** [create sd_id name data_type dimensions] creates an entry in [sd_id] named
       [name] of type [data_type] with the given [dimensions].
   *)
@@ -450,9 +409,9 @@ struct
     in
     let data_type_string = _string_from_data_type data_type in
     DataID (c_create sd_id name data_type_string (Int32.of_int (Array.length dimensions)) dims)
+  *)
 
-  external c_write_data: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDwritedata"
-
+  (*
   (** [write_data sds_id data] creates an entry and writes [data] to the file
       referenced by [sd_id].
   *)
@@ -471,13 +430,8 @@ struct
   let create_data sd_id name data =
     let sds_id = create sd_id name (_data_type_from_t data) (dims data) in
     write_data sds_id data
-
-  external c_end_access: int32 -> int = "ml_SDendaccess"
-
-  (** [end_access sds_id]
-      See above comments about return values...
   *)
-  let end_access (DataID sds_id) = c_end_access sds_id
+
 end
 
 module Vdata =
@@ -485,31 +439,43 @@ struct
   type interface_id = InterfaceID of int32
   type data_id = DataID of int32
 
-  (** This data type holds everything about a given Vdata, including the
-      contents as raw bytes *)
-  type vdata_t = {
-    n_records : int32;
-    interlace : int32;
-    fields : string;
-    vdata_size : int32;
-    vdata_name : string;
-    vdata_class : string;
-    num_attrs : int;
-    num_fields : int;
-    field_orders : int32 array;
-    field_types : hdf_data_type array;
-    field_sizes : int32 array;
-    field_num_attrs : int array;
-    data : (int, int8_unsigned_elt, c_layout) Genarray.t;
-  }
-
   (** Allocate space to hold Vdata *)
   let allocate_vdata_bigarray bytes =
     Genarray.create int8_unsigned c_layout [|bytes|]
 
-  (** [read_vdata_t vdata_id] returns the given Vdata, along with specs. *)
-  let read_vdata_t vdata_id =
-    let (istat, n_records, interlace, fields, vdata_size, vdata_name) =
+  let ref_from_index file_id index =
+    let rec f i vdata_ref =
+      let new_ref = vs_getid file_id vdata_ref in
+      if i = index then
+        new_ref
+      else
+        f (i + 1) new_ref
+    in
+    let vdata_ref = f 0 (-1l) in
+    if vdata_ref = -1l then
+      raise (Invalid_argument "Hdf.Vdata.ref_from_index")
+    else
+      vdata_ref
+
+  let index_from_ref file_id target_ref =
+    let rec f i vdata_ref =
+      let new_ref = vs_getid file_id vdata_ref in
+      let () =
+        if vdata_ref = -1l then
+          raise (Invalid_argument "Hdf.Vdata.ref_from_index")
+        else
+          ()
+      in
+      if new_ref = target_ref then
+        i
+      else
+        f (i + 1) new_ref
+    in
+    f 0 (-1l)
+
+  (** [read_vdata_by_id vdata_id] returns the given Vdata, along with specs. *)
+  let read_data_by_id vdata_id =
+    let (n_records, interlace, fields, vdata_size, vdata_name) =
       vs_inquire vdata_id
     in
     let vdata_class = vs_getclass vdata_id in
@@ -535,21 +501,34 @@ struct
     in
     vs_setfields vdata_id fields;
     vs_read vdata_id data n_records;
-    {
-      n_records = n_records;
-      interlace = interlace;
-      fields = fields;
-      vdata_size = vdata_size;
-      vdata_name = vdata_name;
-      vdata_class = vdata_class;
-      num_attrs = num_attrs;
-      num_fields = num_fields;
-      field_orders = field_orders;
-      field_types = field_types;
-      field_sizes = field_sizes;
-      field_num_attrs = field_num_attrs;
-      data = data;
-    }
+    
+    (
+      object
+        method n_records = n_records
+        method interlace = interlace
+        method fields = fields
+        method vdata_size = vdata_size
+        method vdata_name = vdata_name
+        method vdata_class = vdata_class
+        method num_attrs = num_attrs
+        method num_fields = num_fields
+        method field_orders = field_orders
+        method field_types = field_types
+        method field_sizes = field_sizes
+        method field_num_attrs = field_num_attrs
+        method data = data
+      end
+    )
+
+  (** [read_data ~name interface] *)
+  let read_data ~name interface =
+    let vdata_id =
+      let vdata_ref = vs_find interface name in
+      vs_attach interface vdata_ref "r"
+    in
+    let vdata = read_data_by_id vdata_id in
+    vs_detach vdata_id;
+    vdata
 
   (** [vdata_read_map f file_id] will go through each Vdata in [file_id],
       applying [f] and returning a list of the results.  This is mainly meant
@@ -574,104 +553,52 @@ struct
       as those in [filename].
 
   *)
-  let read_vdata_t_list filename =
+  let read_data_list filename =
     let file_id = h_open filename DFACC_READ 0 in
     v_start file_id;
 
-    let vdata_list = vdata_read_map read_vdata_t file_id in
+    let vdata_list = vdata_read_map read_data_by_id file_id in
 
     v_end file_id;
     h_close file_id;
     vdata_list
 
-  (** [write_vdata_t file_id data] will write out the Vdata+specs given in [data].
+  (** [write_vdata file_id data] will write out the Vdata+specs given in [data].
       The combination of [read_vdata_t] and [write_vdata_t] should preserve the
       original Vdata structure in the new file.
   *)
-  let write_vdata_t file_id data =
+  let write_data file_id data =
     let vdata_id = vs_attach file_id (-1l) "w" in
-    let field_name_array = Array.of_list (Pcre.split ~pat:"," data.fields) in
+    let field_name_array = Array.of_list (Pcre.split ~pat:"," data#fields) in
     let field_defs =
-      Array.init (Array.length data.field_types)
-        (fun i -> ( data.field_types.(i), field_name_array.(i), data.field_orders.(i) ))
+      Array.init (Array.length data#field_types)
+        (fun i -> ( data#field_types.(i), field_name_array.(i), data#field_orders.(i) ))
     in
     Array.iter
       (fun (ftype, fname, forder) -> vs_fdefine vdata_id fname ftype forder)
       field_defs;
 
-    vs_setname vdata_id data.vdata_name;
-    vs_setclass vdata_id data.vdata_class;
-    vs_setfields vdata_id data.fields;
+    vs_setname vdata_id data#vdata_name;
+    vs_setclass vdata_id data#vdata_class;
+    vs_setfields vdata_id data#fields;
 
-    vs_write vdata_id data.data data.n_records;
+    vs_write vdata_id data#data data#n_records;
 
     vs_detach vdata_id;
     ()
 
-  (** [write_vdata_t_list file_id vdata_list] will write out each element of
+  (** [write_vdata_list file_id vdata_list] will write out each element of
       [vdata_list] to [file_id] in order.
   *)
-  let rec write_vdata_t_list file_id vdata_list =
+  let rec write_data_list file_id vdata_list =
     match vdata_list with
         hd :: tl ->
-          write_vdata_t file_id hd;
-          write_vdata_t_list file_id tl
+          write_data file_id hd;
+          write_data_list file_id tl
       | [] ->
           ()
 
-  (** This type holds the basic specs for SDS entries in a HDF4 file. *)
-  type data_spec = {
-    index : data_id;
-    name : string;
-    field_name_list : string;
-    data_size : int; (* Size (in bytes) of each record. *)
-    records : int;   (* Number of records. *)
-  }
-
-  (** {6 Native C interface}
-      The following are the raw calls to the C functions.  Most, if not all, should
-      be wrapped in appropriate OCaml goodness. *)
-
-  external c_open_hdf: string -> int32 = "ml_Hopen"
-
-  (** [open_hdf filename] returns the file_id for the Vdata interface of the
-      HDF4 file [filename].
-      This opens the file in read-only mode.
-  *)
-  let open_hdf filename = InterfaceID (c_open_hdf filename)
-
-  external c_close_hdf: int32 -> int = "ml_Hclose"
-
-  (** [close_hdf file_id] closes the given HDF4 interface referenced by file_id.
-      See {!Hdf.close_sd} for a discussion on the return value.
-  *)
-  let close_hdf (InterfaceID file_id) = c_close_hdf file_id
-
-  external c_start: int32 -> int32 = "ml_Vstart"
-
-  (** [start file_id] gives the Vdata index number for the given HDF interface.
-  *)
-  let start (InterfaceID file_id) = DataID (c_start file_id)
-
-  (** [c_get_info file_id vd_index] retrieves information on the data referenced
-      by vd_index.
-      The return value is [(vd_index, name, field name list, data size, number of records)]
-  *)
-  external c_get_info: int32 -> int32 -> (int32 * string * string * int * int) = "ml_VSinquire"
-
-  (** [get_info file_id vd_index] *)
-  let get_info (InterfaceID file_id) (DataID vd_index) =
-    let (index, name, field_name_list, data_size, records) =
-      c_get_info file_id vd_index
-    in
-    {
-      index = DataID index;
-      name = name;
-      field_name_list = field_name_list;
-      data_size = data_size;
-      records = records;
-    }
-
+  (*
   (** [get_spec_list file_id] returns a list of the information given by {!Hdf.get_vs_info}
       for each Vdata available through the given [file_id] interface.
   *)
@@ -689,140 +616,6 @@ struct
               failwith x
     in
     f 0
-
-  (** [get_VDdata file_id vd_index genarray] returns the data type string for [vd_index].
-      The data referenced by [vd_index] is stored in [genarray].
-      XXX : This is an older, more complex version.  The "raw" VSread function is wrapped
-      as [Hdf.vs_read].
   *)
-  external c_get_data: int32 -> int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
-    string = "ml_VSread_complicated"
-
-  (** Actually GET the data in to the bigarray. *)        
-  let _get_data (InterfaceID file_id) (DataID vd_index) data =
-    let f x = c_get_data file_id vd_index x in
-    match data with
-        Int8 x -> f x
-      | UInt8 x -> f x
-      | Int16 x -> f x
-      | UInt16 x -> f x
-      | Int32 x -> f x
-      | Float32 x -> f x
-      | Float64 x -> f x
-
-  external c_vd_index_from_vdata_ref: int32 -> int32 -> int32 = "ml_vd_index_from_vdata_ref"
-
-  (** Get the index from a vdata_ref value. *)
-  let vd_index_from_vdata_ref (InterfaceID file_id) (DataID vdata_ref) =
-    DataID (c_vd_index_from_vdata_ref file_id vdata_ref)
-
-  external c_VSfind: int32 -> string -> int32 = "ml_VSfind"
-
-  (** [get_sd_index_from_name sd_id name] will return the index of the SDS named [name]. *)
-  let get_index_from_name (InterfaceID file_id) name =
-    (* (List.find (fun x -> x.name = name) (get_spec_list file_id)).index *)
-    (* DataID (c_get_index_from_name file_id name) *)
-    vd_index_from_vdata_ref (InterfaceID file_id) (DataID (c_VSfind file_id name))
-
-  (** [get_by_name interface_id data_name] returns the data called [data_name]. *)
-  let get_data_by_name file_id name data_type =
-    let vd_index = get_index_from_name file_id name in
-    let specs = get_info file_id vd_index in
-    let size_multiplier = specs.data_size / (_type_size_in_bytes data_type) in
-    (* TODO FIXME XXX - Change this to throw an error if
-       specs.records * specs.data_size ne specs.records * size_multiplier
-       AND
-       if size_multiplier = 0, or other possible bad outcomes.
-    *)
-    let data =
-      create data_type [| specs.records * size_multiplier |]
-    in
-    let _ = _get_data file_id vd_index data in
-    data
-
-  (** [get_by_name interface_id data_name] returns the data called [data_name]. *)
-  let get_data_by_index file_id vd_index data_type =
-    let specs = get_info file_id vd_index in
-    let size_multiplier = specs.data_size / (_type_size_in_bytes data_type) in
-    (* TODO FIXME XXX - Change this to throw an error if
-       specs.records * specs.data_size ne specs.records * size_multiplier
-       AND
-       if size_multiplier = 0, or other possible bad outcomes.
-    *)
-    let data =
-      create data_type [| specs.records * size_multiplier |]
-    in
-    let _ = _get_data file_id vd_index data in
-    data
-
-  external c_v_end: int32 -> int = "ml_Vend"
-
-  (** [v_end file_id] closes the Vdata interface to [file_id].
-      See {!Hdf.close_sd} for a discussion on the return value.
-  *)
-  let v_end (InterfaceID file_id) = c_v_end file_id
-
-  (** {6 File and data set creation functions} *)
-
-  (** [open_hdf_create filename] creates the HDF4 file [filename].
-      [filename] must exist.
-      File is opened read-only.
-      See above comments about return values...
-  *)
-  external open_hdf_create: string -> int = "ml_Hopen_create"
-
-  external c_open_hdf_rw: string -> int32 = "ml_Hopen_rw"
-
-  (** Like {!Hdf.open_hdf_create} but file is opened read-write. *)
-  let open_hdf_rw filename = InterfaceID (c_open_hdf_rw filename)
-
-  (** NOTE: [vdata_id] values must be [Int32] values, as the HDF library uses the full 32 range. *)
-
-  external c_create: int32 -> int32 = "ml_VSattach_create"
-
-  (** [create file_id] returns a vdata_id for a new Vdata entry in the HDF4 file
-      referenced by [file_id].
-  *)
-  let create (InterfaceID file_id) = DataID (c_create file_id)
-
-  external c_define_fields: int32 -> string -> string -> int -> unit = "ml_VSfdefine"
-
-  (** [define_fields vdata_id fieldname datatype_string order] *)
-  let define_fields (DataID vdata_id) fieldname data_type order =
-    c_define_fields vdata_id fieldname (_string_from_data_type data_type) order
-
-  external c_set_fields: int32 -> string -> unit = "ml_VSsetfields"
-
-  (** [set_fields vdata_id field_list_string] *)
-  let set_fields (DataID vdata_id) field_list_string = c_set_fields vdata_id field_list_string
-
-  (** [write vdata_id data number_of_records] *)
-  let write (DataID vdata_id) data number_of_records =
-    let f x = vs_write vdata_id x number_of_records in
-    match data with
-        Int8 x -> f x
-      | UInt8 x -> f x
-      | Int16 x -> f x
-      | UInt16 x -> f x
-      | Int32 x -> f x
-      | Float32 x -> f x
-      | Float64 x -> f x
-
-  external c_set_name: int32 -> string -> unit = "ml_VSsetname"
-
-  (** [set_name vdata_id name] *)
-  let set_name (DataID vdata_id) name = c_set_name vdata_id name
-
-  external c_set_class: int32 -> string -> unit = "ml_VSsetclass"
-
-  (** [set_class vdata_id class] *)
-  let set_class (DataID vdata_id) name = c_set_class vdata_id name
-
-  external c_detach: int32 -> unit = "ml_VSdetach"
-
-  (** [vs_detach vdata_id]
-      Detach the Vdata interface.
-  *)
-  let detach (DataID vdata_id) = c_detach vdata_id
 end
 
