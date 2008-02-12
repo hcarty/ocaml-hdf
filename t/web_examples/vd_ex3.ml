@@ -35,7 +35,7 @@ let () =
   in
 
   (* Write the data to the Vset. *)
-  let _ = vs_write vdata_id vdata_buf number_of_rows in
+  let _ = vs_write vdata_id vdata_buf (Int32.of_int number_of_rows) in
 
   (* Set the name and class. *)
   let _ = vs_setname vdata_id "Example Vdata" in
