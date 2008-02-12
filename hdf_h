@@ -157,16 +157,15 @@
        int32 HRPconvert   (int32 fid, uint16 tag, uint16 ref, int32 xdim, int32 ydim,  int16 scheme, comp_info * cinfo, uintn pixel_size);
      */
 
-    //const char *HEstring (hdf_err_code_t error_code);
+    const char * HEstring (hdf_err_code_t error_code);
 
-    /*
-       void HEpush   (hdf_err_code_t error_code, const char *function_name,  const char *file_name, intn line);
-       void HEreport (const char *, ...);
-       void HEprint (FILE * stream, int32 print_level);
-       int16 HEvalue (int32 level);
-       void HEPclear (void);
-       intn HEshutdown (void);
-     */
+    //void HEpush   (hdf_err_code_t error_code, const char *function_name,  const char *file_name, intn line);
+    //void HEreport (const char *, ...);
+    //void HEprint (FILE * stream, int32 print_level);
+    //int16 HEvalue (int32 level);
+    hdf_err_code_t HEvalue (int32 level);
+    void HEPclear (void);
+    //intn HEshutdown (void);
 
     //int32 Hstartbitread (int32 file_id, uint16 tag, uint16 ref);
     //int32 Hstartbitwrite   (int32 file_id, uint16 tag, uint16 ref, int32 length);

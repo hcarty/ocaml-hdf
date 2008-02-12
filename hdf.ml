@@ -12,6 +12,7 @@ let hdf_open = h_open
 let hdf_close = h_close
 let v_start = v_initialize
 let v_end = v_finish
+let he_clear = hep_clear
 
 (** A somewhat redundant type, used for communication with the C library *)
 type data_t = [ `int8 | `uint8 | `int16 | `uint16 | `int32 | `float32 | `float64 ]
@@ -387,18 +388,18 @@ struct
 
   (** [read_all sdid] returns a list of the SDS contents of [sdid] *)
   let read_all interface =
-    let rec f index =
+    let rec f index l =
       try
-        (read_data ~index interface) :: f (Int32.add index 1l)
+        f (Int32.add index 1l) (read_data ~index interface :: l)
       with
           (* TODO - This isn't a very good error checking method. *)
         Failure x ->
           if index > 0l then
-            []
+            List.rev l
           else
             failwith x
     in
-    f 0l
+    f 0l []
 
   (** [write_data sds_id data] creates an entry and writes [data] to the file
       referenced by [sds_id].
@@ -417,8 +418,12 @@ struct
   (** [create_data sd_id name data] - create and write an SDS named [name] *)
   let create_data interface name sds =
     let sds_id =
-      sd_create interface name (_hdf_type_from_t sds)
-        (Array.map Int32.of_int (dims sds))
+      match 
+        sd_create interface name (_hdf_type_from_t sds)
+          (Array.map Int32.of_int (dims sds))
+      with
+          (-1l) -> raise (DataFailure "Hdf.SD.create_data: unable to create SDS entry")
+        | x -> x
     in
     write_data sds_id sds
 end

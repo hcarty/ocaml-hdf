@@ -13,12 +13,12 @@ my $output_file = $ARGV[0] . ".inc";
 my %manual_function_attributes = (
     SDgetinfo => {
         parameter_attributes => {
-            dimsizes => ["length_is(" . MAX_VAR_DIMS . ")"]
+            dimsizes => ["size_is(" . MAX_VAR_DIMS . ")"]
         }
     },
     SDcreate => {
         parameter_attributes => {
-            dimsizes => ["length_is(rank)"]
+            dimsizes => ["size_is(rank)"]
         }
     },
 );
@@ -239,7 +239,7 @@ sub process_prototype {
     $bigarray = $bigarray ? "bigarray, " : "";
 
     # There is probably a better way to do this...
-    my ($return_type, $function_name, $args) = $line =~ /^(\w+ (?:\*\s*)?)(\w+)\s*\(([\w\s\*\[\],]*)\)/;
+    my ($return_type, $function_name, $args) = $line =~ /^((?:const )?\w+ (?:\*\s*)?)(\w+)\s*\(([\w\s\*\[\],]*)\)/;
     unless ($return_type and $function_name and $args) {
         print "$line\n";
     }
