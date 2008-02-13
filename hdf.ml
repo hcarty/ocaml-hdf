@@ -473,7 +473,7 @@ struct
     f 0 (-1l)
 
   (** [read_vdata_by_id vdata_id] returns the given Vdata, along with specs. *)
-  let read_data_by_id vdata_id =
+  let read_data_by_id ~cast vdata_id =
     let (n_records, interlace, fields, vdata_size, vdata_name) =
       vs_inquire vdata_id
     in
@@ -515,19 +515,27 @@ struct
         method field_types = field_types
         method field_sizes = field_sizes
         method field_num_attrs = field_num_attrs
-        method data = data
+        method data = G.cast cast data
       end
     )
 
+  (** [read_data_by_id_nocast] *)
+  let read_data_by_id_nocast interface =
+    read_data_by_id ~cast:Bigarray.int8_unsigned interface
+
   (** [read_data ~name interface] *)
-  let read_data ~name interface =
+  let read_data ~name ~cast interface =
     let vdata_id =
       let vdata_ref = vs_find interface name in
       vs_attach interface vdata_ref "r"
     in
-    let vdata = read_data_by_id vdata_id in
+    let vdata = read_data_by_id ~cast interface in
     vs_detach vdata_id;
     vdata
+
+  (** [read_data_nocast] *)
+  let read_data_nocast ~name interface =
+    read_data ~name ~cast:Bigarray.int8_unsigned interface
 
   (** [vdata_read_map f file_id] will go through each Vdata in [file_id],
       applying [f] and returning a list of the results.  This is mainly meant
@@ -553,7 +561,7 @@ struct
 
   *)
   let read_all interface =
-    vdata_read_map read_data_by_id interface
+    vdata_read_map read_data_by_id_nocast interface
 
   (** [write_vdata file_id data] will write out the Vdata+specs given in [data].
       The combination of [read_vdata_t] and [write_vdata_t] should preserve the
