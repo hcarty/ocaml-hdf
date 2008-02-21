@@ -48,6 +48,11 @@ external sd_setfillvalue_float: int32 -> float -> unit = "ml_SDsetfillvalue_floa
 external sd_setfillvalue_int: int32 -> int -> unit = "ml_SDsetfillvalue_int"
 external sd_setfillvalue_int32: int32 -> int32 -> unit = "ml_SDsetfillvalue_int32"
 
+(** [sd_getinfo] output can use a little cleanup in the dimsizes *)
+let sd_getinfo sdsid =
+  let (name, rank, dimsizes, data_type, num_attrs) = sd_getinfo sdsid in
+  (name, rank, Array.sub dimsizes 0 (Int32.to_int rank), data_type, num_attrs)
+
 (** {6 Hight Level Functions} *)
 
 (** The basic type which encapsulates the HDF data types we can
@@ -360,7 +365,7 @@ struct
       object
         method data = data
         method name = sds_name
-        method dimsizes = Array.sub dimsizes 0 (Int32.to_int rank)
+        method dimsizes = dimsizes
         method data_type = data_type
         method num_attrs = num_attrs
       end
@@ -529,7 +534,7 @@ struct
       let vdata_ref = vs_find interface name in
       vs_attach interface vdata_ref "r"
     in
-    let vdata = read_data_by_id ~cast interface in
+    let vdata = read_data_by_id ~cast vdata_id in
     vs_detach vdata_id;
     vdata
 
