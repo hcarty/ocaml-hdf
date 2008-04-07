@@ -76,9 +76,14 @@ struct
         [access] permissions (default is [DFACC_READ].  This opens and starts
         both the SDS and Vdata interfaces. *)
     let open_file ?(access = DFACC_READ) filename =
-      let sdid = sd_start filename access in
+      let sd_access =
+        match access with
+            DFACC_CREATE -> DFACC_WRITE
+          | x -> x
+      in
       let fid = h_open filename access 0 in
       v_start fid;
+      let sdid = sd_start filename sd_access in
       { sdid = sdid; fid = fid }
 
     (** This is a work around - it is not currently used, and probably
@@ -412,7 +417,7 @@ struct
           ba
       )
 
-  (** [read_data ?name ?index interface] -
+  (** [read ?name ?index interface] -
       Must provide ONE of [name] OR [index].  It return an object containing
       the SDS contents and related metadata. *)
   let read ?name ?index interface =
@@ -458,21 +463,13 @@ struct
             info_sds
       )
 
-  (** [read_all sdid] returns a list of the SDS contents of [sdid] *)
+  (** [read_all interface] returns an array of the SDS contents of
+      [interface]. *)
   let read_all interface =
-    let rec f index l =
-      try
-        f (Int32.add index 1l) (read ~index interface :: l)
-      with
-          (* TODO - This isn't a very good error checking method. *)
-        Failure x ->
-          let error_id = he_value 0l in
-          if index > 0l && error_id = DFE_NONE then
-            List.rev l
-          else
-            raise (HdfError ("Hdf.SD.read_all: " ^ (he_string error_id)))
-    in
-    f 0l []
+    let (num_sds, _) = sd_fileinfo interface.sdid in
+    Array.init
+      (Int32.to_int num_sds)
+      (fun i -> read ~index:(Int32.of_int i) interface)
 
   (** [write_data sds_id data] creates an entry and writes [data] to the file
       referenced by [sds_id].
@@ -642,7 +639,7 @@ struct
         let () = vs_detach vdata_id in
         loop (result :: l) (vs_getid interface.fid vdata_ref)
     in
-    loop [] vdata_ref_0
+    Array.of_list (loop [] vdata_ref_0)
 
   (** [read_all interface] will return a list of Vdata objects, one for each
       Vdata in [interface].  The data in the returned list are in the same order
@@ -665,16 +662,14 @@ struct
     Array.iter
       (fun (ftype, fname, forder) -> vs_fdefine vdata_id fname ftype forder)
       field_defs;
-
     vs_setname vdata_id data#name;
     vs_setclass vdata_id data#vdata_class;
     vs_setfields vdata_id data#fields;
-
     vs_write vdata_id data#data data#n_records;
-
     vs_detach vdata_id;
     ()
 
+  (*
   (** [write_vdata_list interface vdata_list] will write out each element of
       [vdata_list] to [interface] in order. *)
   let rec write_data_list interface vdata_list =
@@ -685,7 +680,6 @@ struct
       | [] ->
           ()
 
-  (*
   (** [get_spec_list file_id] returns a list of the information given by {!Hdf.get_vs_info}
       for each Vdata available through the given [file_id] interface.
   *)
