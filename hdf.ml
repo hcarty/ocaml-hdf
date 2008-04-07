@@ -1,7 +1,7 @@
 (** {5 HDF4} *)
 
 open Bigarray
-module G = ExtBigarray
+open ExtBigarray
 
 (** {6 Low Level Functions} *)
 
@@ -13,12 +13,6 @@ let hdf_close = h_close
 let v_start = v_initialize
 let v_end = v_finish
 let he_clear = hep_clear
-
-(** A somewhat redundant type, used for communication with the C library *)
-type data_t = [ `int8 | `uint8 | `int16 | `uint16 | `int32 | `float32 | `float64 ]
-
-(** Convert HDF data type to a data_t *)
-external hdf_datatype_to_mlvariant: int32 -> data_t = "hdf_datatype_to_mlvariant"
 
 (** Low-level functions wrapped by hand to read and write data. *)
 external vs_write: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
@@ -53,271 +47,306 @@ let sd_getinfo sdsid =
   let (name, rank, dimsizes, data_type, num_attrs) = sd_getinfo sdsid in
   (name, rank, Array.sub dimsizes 0 (Int32.to_int rank), data_type, num_attrs)
 
-(** {6 Hight Level Functions} *)
+(** {6 Higher Level Functions} *)
 
-(** The basic type which encapsulates the HDF data types we can
-    support.  These are encapsulated in a variant type to avoid having
-    to write explicit cases for every data type within a given HDF4
-    file.
-*)
-type t =
-    Int8 of (int, Bigarray.int8_signed_elt, Bigarray.c_layout) Bigarray.Genarray.t
-  | UInt8 of (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
-  | Int16 of (int, Bigarray.int16_signed_elt, Bigarray.c_layout) Bigarray.Genarray.t
-  | UInt16 of (int, Bigarray.int16_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
-  | Int32 of (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Genarray.t
-  | Float32 of (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
-  | Float64 of (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t
+module Hdf4 =
+struct
 
-(** Exception raised if we try to get at data which we shouldn't or can't handle. *)
-exception BadDataType of string * string
+  (** A somewhat redundant type, used for communication with the C library *)
+  type data_t = [ `int8 | `uint8 | `int16 | `uint16 | `int32 | `float32 | `float64 ]
 
-(** Exception raised if reading or writing data fails *)
-exception HdfError of string
+  (** Exception raised if we try to get at data which we shouldn't or can't handle. *)
+  exception BadDataType of string * string
 
-(** {6 Internal library functions } *)
+  (** Exception raised if reading or writing data fails *)
+  exception HdfError of string
 
-(** Check to see if a file is a valid HDF4 data file.
-    [is_hdf filename] give true if [filename] is a HDF4 file, false if not.
-    TODO - Remove this, it's in the lowlevel routines.
-*)
-let is_hdf filename = match h_ishdf filename with 1 -> true | _ -> false
+  module Private :
+  sig
+    type interface = private { sdid : int32; fid : int32 }
+    val open_file : ?access:access_type -> string -> interface
+    (* val from_int32s : int32 -> int32 -> interface *)
+  end =
+  struct
+    (** HDF interfaces type *)
+    type interface = { sdid : int32; fid : int32 }
 
-(** Create a bigarray of the appropriate type, wrapped as an [Hdf.t]. *)
-let create (data_type : data_t) dimensions =
-  let f x = Bigarray.Genarray.create x Bigarray.c_layout dimensions in
-  match data_type with
-      `int8 -> Int8 (f Bigarray.int8_signed)
-    | `uint8 -> UInt8 (f Bigarray.int8_unsigned)
-    | `int16 -> Int16 (f Bigarray.int16_signed)
-    | `uint16 -> UInt16 (f Bigarray.int16_unsigned)
-    | `int32 -> Int32 (f Bigarray.int32)
-    | `float32 -> Float32 (f Bigarray.float32)
-    | `float64 -> Float64 (f Bigarray.float64)
+    (** [open_file ?access filename] will open the HDF file [filename] with
+        [access] permissions (default is [DFACC_READ].  This opens and starts
+        both the SDS and Vdata interfaces. *)
+    let open_file ?(access = DFACC_READ) filename =
+      let sdid = sd_start filename access in
+      let fid = h_open filename access 0 in
+      v_start fid;
+      { sdid = sdid; fid = fid }
 
-(** Get a string representation for a given data type. *)
-let ( _type_size_in_bytes : data_t -> int ) = function
-    `int8
-  | `uint8 -> 1
-  | `int16
-  | `uint16 -> 2
-  | `int32 -> 4
-  | `float32 -> 4
-  | `float64 -> 8
+    (** This is a work around - it is not currently used, and probably
+        should not be used at all. *)
+    (* let from_int32s sdid fid = { sdid = sdid; fid = fid } *)
+  end
 
-(** Get a variant type tag from a Hdf.t *)
-let ( _data_type_from_t : t -> data_t ) = function
-    Int8 _ -> `int8
-  | UInt8 _ -> `uint8
-  | Int16 _ -> `int16
-  | UInt16 _ -> `uint16
-  | Int32 _ -> `int32
-  | Float32 _ -> `float32
-  | Float64 _ -> `float64
+  include Private
 
-(** Get a HDF type from a Hdf.t *)
-let _hdf_type_from_t = function
-    Int8 _ -> DFNT_INT8
-  | UInt8 _ -> DFNT_UINT8
-  | Int16 _ -> DFNT_INT16
-  | UInt16 _ -> DFNT_UINT16
-  | Int32 _ -> DFNT_INT32
-  | Float32 _ -> DFNT_FLOAT32
-  | Float64 _ -> DFNT_FLOAT64
+  (** [close_file interface] closes an HDF file opened with [open_file] *)
+  let close_file interface =
+    sd_end interface.sdid;
+    v_end interface.fid;
+    h_close interface.fid;
+    ()
 
-(** [dims data] returns an array holding the dimensions of [data]. *)
-let dims data =
-  let f x = Bigarray.Genarray.dims x in
-  match data with
-      Int8 x -> f x
-    | UInt8 x -> f x
-    | Int16 x -> f x
-    | UInt16 x -> f x
-    | Int32 x -> f x
-    | Float32 x -> f x
-    | Float64 x -> f x
+  (** The basic type which encapsulates the HDF data types we can
+      support.  These are encapsulated in a variant type to avoid having
+      to write explicit cases for every data type within a given HDF4
+      file.
+  *)
+  type t =
+      Int8 of (int, Bigarray.int8_signed_elt, Bigarray.c_layout) Bigarray.Genarray.t
+    | UInt8 of (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
+    | Int16 of (int, Bigarray.int16_signed_elt, Bigarray.c_layout) Bigarray.Genarray.t
+    | UInt16 of (int, Bigarray.int16_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
+    | Int32 of (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Genarray.t
+    | Float32 of (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
+    | Float64 of (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t
 
-(** [sub data initial_index length] returns a subsection of [data] of length
-    [length] starting from [initial_index].
-*)
-let sub data initial_index length =
-  let f x = Bigarray.Genarray.sub_left x initial_index length in
-  match data with
-      Int8 x -> Int8 (f x)
-    | UInt8 x -> UInt8 (f x)
-    | Int16 x -> Int16 (f x)
-    | UInt16 x -> UInt16 (f x)
-    | Int32 x -> Int32 (f x)
-    | Float32 x -> Float32 (f x)
-    | Float64 x -> Float64 (f x)
+  (** Create a bigarray of the appropriate type, wrapped as an [Hdf.t]. *)
+  let create (data_type : data_t) dimensions =
+    let f x = Bigarray.Genarray.create x Bigarray.c_layout dimensions in
+    match data_type with
+        `int8 -> Int8 (f Bigarray.int8_signed)
+      | `uint8 -> UInt8 (f Bigarray.int8_unsigned)
+      | `int16 -> Int16 (f Bigarray.int16_signed)
+      | `uint16 -> UInt16 (f Bigarray.int16_unsigned)
+      | `int32 -> Int32 (f Bigarray.int32)
+      | `float32 -> Float32 (f Bigarray.float32)
+      | `float64 -> Float64 (f Bigarray.float64)
 
-(** [reshape data dims] works in exactly the same way as Bigarray.reshape *)
-let reshape data dims =
-  let f x = Bigarray.reshape x dims in
-  match data with
-      Int8 x -> Int8 (f x)
-    | UInt8 x -> UInt8 (f x)
-    | Int16 x -> Int16 (f x)
-    | UInt16 x -> UInt16 (f x)
-    | Int32 x -> Int32 (f x)
-    | Float32 x -> Float32 (f x)
-    | Float64 x -> Float64 (f x)
+  (** {6 Internal library functions } *)
 
-(** [slice data new_dimensions] returns a subarray of [data] with dimensions
-    [new_dimensions].
-*)
-let slice data new_dimensions =
-  let f x = Bigarray.Genarray.slice_left x new_dimensions in
-  match data with
-      Int8 x -> Int8 (f x)
-    | UInt8 x -> UInt8 (f x)
-    | Int16 x -> Int16 (f x)
-    | UInt16 x -> UInt16 (f x)
-    | Int32 x -> Int32 (f x)
-    | Float32 x -> Float32 (f x)
-    | Float64 x -> Float64 (f x)
+  (** Check to see if a file is a valid HDF4 data file.
+      [is_hdf filename] give true if [filename] is a HDF4 file, false if not.
+      TODO - Remove this, it's in the lowlevel routines.
+  *)
+  let is_hdf filename = match h_ishdf filename with 1 -> true | _ -> false
 
-(** [blit source dest] copies the data from [source] to [dest].
-*)
-let blit source dest =
-  let f x y = Bigarray.Genarray.blit x y in
-  match (source, dest) with
-      (Int8 x, Int8 y) -> f x y
-    | (UInt8 x, UInt8 y) -> f x y
-    | (Int16 x, Int16 y) -> f x y
-    | (UInt16 x, UInt16 y) -> f x y
-    | (Int32 x, Int32 y) -> f x y
-    | (Float32 x, Float32 y) -> f x y
-    | (Float64 x, Float64 y) -> f x y
-    | _ -> raise (BadDataType ("blit", ""))
+  (** Convert HDF data type to a data_t *)
+  external hdf_datatype_to_mlvariant: int32 -> data_t = "hdf_datatype_to_mlvariant"
 
-(** [get_* data which_datum] returns a single element from [data] at
-    the location specified by the array [which_datum].
-*)
-let get_int data which_datum =
-  let f x = Bigarray.Genarray.get x which_datum in
-  match data with
-    | Int8 x -> f x
-    | UInt8 x -> f x
-    | Int16 x -> f x
-    | UInt16 x -> f x
-    | _ -> raise (BadDataType ("get_int", ""))
+  (** Get a string representation for a given data type. *)
+  let ( _type_size_in_bytes : data_t -> int ) = function
+      `int8
+    | `uint8 -> 1
+    | `int16
+    | `uint16 -> 2
+    | `int32 -> 4
+    | `float32 -> 4
+    | `float64 -> 8
 
-let get_int32 data which_datum =
-  let f x = Bigarray.Genarray.get x which_datum in
-  match data with
-    | Int32 x -> f x
-    | _ -> raise (BadDataType ("get_int32", ""))
+  (** Get a variant type tag from a Hdf.t *)
+  let ( _data_type_from_t : t -> data_t ) = function
+      Int8 _ -> `int8
+    | UInt8 _ -> `uint8
+    | Int16 _ -> `int16
+    | UInt16 _ -> `uint16
+    | Int32 _ -> `int32
+    | Float32 _ -> `float32
+    | Float64 _ -> `float64
 
-let get_float data which_datum =
-  let f x = Bigarray.Genarray.get x which_datum in
-  match data with
-    | Float32 x -> f x
-    | Float64 x -> f x
-    | _ -> raise (BadDataType ("get_float", ""))
+  (** Get a HDF type from a Hdf.t *)
+  let _hdf_type_from_t = function
+      Int8 _ -> DFNT_INT8
+    | UInt8 _ -> DFNT_UINT8
+    | Int16 _ -> DFNT_INT16
+    | UInt16 _ -> DFNT_UINT16
+    | Int32 _ -> DFNT_INT32
+    | Float32 _ -> DFNT_FLOAT32
+    | Float64 _ -> DFNT_FLOAT64
 
-(** [set_* data which_datum value] sets a single element of [data] at
-    the location specified by the array [which_datum] to [value].
-*)
-let set_int data which_datum value =
-  let f x = Bigarray.Genarray.set x which_datum value in
-  match data with
-    | Int8 x -> f x
-    | UInt8 x -> f x
-    | Int16 x -> f x
-    | UInt16 x -> f x
-    | _ -> raise (BadDataType ("set_int", ""))
+  (** [dims data] returns an array holding the dimensions of [data]. *)
+  let dims data =
+    let f x = Bigarray.Genarray.dims x in
+    match data with
+        Int8 x -> f x
+      | UInt8 x -> f x
+      | Int16 x -> f x
+      | UInt16 x -> f x
+      | Int32 x -> f x
+      | Float32 x -> f x
+      | Float64 x -> f x
 
-let set_int32 data which_datum value =
-  let f x = Bigarray.Genarray.set x which_datum value in
-  match data with
-    | Int32 x -> f x
-    | _ -> raise (BadDataType ("set_int32", ""))
+  (** [sub data initial_index length] returns a subsection of [data] of length
+      [length] starting from [initial_index]. *)
+  let sub data initial_index length =
+    let f x = Bigarray.Genarray.sub_left x initial_index length in
+    match data with
+        Int8 x -> Int8 (f x)
+      | UInt8 x -> UInt8 (f x)
+      | Int16 x -> Int16 (f x)
+      | UInt16 x -> UInt16 (f x)
+      | Int32 x -> Int32 (f x)
+      | Float32 x -> Float32 (f x)
+      | Float64 x -> Float64 (f x)
 
-let set_float data which_datum value =
-  let f x = Bigarray.Genarray.set x which_datum value in
-  match data with
-    | Float32 x -> f x
-    | Float64 x -> f x
-    | _ -> raise (BadDataType ("set_float", ""))
+  (** [reshape data dims] works in exactly the same way as Bigarray.reshape *)
+  let reshape data dims =
+    let f x = Bigarray.reshape x dims in
+    match data with
+        Int8 x -> Int8 (f x)
+      | UInt8 x -> UInt8 (f x)
+      | Int16 x -> Int16 (f x)
+      | UInt16 x -> UInt16 (f x)
+      | Int32 x -> Int32 (f x)
+      | Float32 x -> Float32 (f x)
+      | Float64 x -> Float64 (f x)
 
-(** {6 Convenience, Array-module-like functions} *)
+  (** [slice data new_dimensions] returns a subarray of [data] with dimensions
+      [new_dimensions]. *)
+  let slice data new_dimensions =
+    let f x = Bigarray.Genarray.slice_left x new_dimensions in
+    match data with
+        Int8 x -> Int8 (f x)
+      | UInt8 x -> UInt8 (f x)
+      | Int16 x -> Int16 (f x)
+      | UInt16 x -> UInt16 (f x)
+      | Int32 x -> Int32 (f x)
+      | Float32 x -> Float32 (f x)
+      | Float64 x -> Float64 (f x)
 
-(** Number of elements in the whole data set. *)
-let elems b =
-  let dims = dims b in
-  Array.fold_left ( * ) 1 dims
+  (** [blit source dest] copies the data from [source] to [dest]. *)
+  let blit source dest =
+    let f x y = Bigarray.Genarray.blit x y in
+    match (source, dest) with
+        (Int8 x, Int8 y) -> f x y
+      | (UInt8 x, UInt8 y) -> f x y
+      | (Int16 x, Int16 y) -> f x y
+      | (UInt16 x, UInt16 y) -> f x y
+      | (Int32 x, Int32 y) -> f x y
+      | (Float32 x, Float32 y) -> f x y
+      | (Float64 x, Float64 y) -> f x y
+      | _ -> raise (BadDataType ("blit", ""))
 
-(** [apply_* f b] applies [f] to every element of [b], modifying [b] in place. *)
-let apply_int f data =
-  match data with
-    | Int8 x -> G.apply f x
-    | UInt8 x -> G.apply f x
-    | Int16 x -> G.apply f x
-    | UInt16 x -> G.apply f x
-    | _ -> raise (BadDataType ("apply_int", ""))
+  (** [get_* data which_datum] returns a single element from [data] at
+      the location specified by the array [which_datum]. *)
+  let get_int data which_datum =
+    let f x = Bigarray.Genarray.get x which_datum in
+    match data with
+      | Int8 x -> f x
+      | UInt8 x -> f x
+      | Int16 x -> f x
+      | UInt16 x -> f x
+      | _ -> raise (BadDataType ("get_int", ""))
 
-let apply_int32 f data =
-  match data with
-    | Int32 x -> G.apply f x
-    | _ -> raise (BadDataType ("apply_int32", ""))
+  let get_int32 data which_datum =
+    let f x = Bigarray.Genarray.get x which_datum in
+    match data with
+      | Int32 x -> f x
+      | _ -> raise (BadDataType ("get_int32", ""))
 
-let apply_float f data =
-  match data with
-    | Float32 x -> G.apply f x
-    | Float64 x -> G.apply f x
-    | _ -> raise (BadDataType ("apply_float", ""))
+  let get_float data which_datum =
+    let f x = Bigarray.Genarray.get x which_datum in
+    match data with
+      | Float32 x -> f x
+      | Float64 x -> f x
+      | _ -> raise (BadDataType ("get_float", ""))
 
-(** [map_* f kind b] applies [f] to every element of [b], returning the resulting values.
-    [b] is not changed.
-*)
-let map_int f kind data =
-  match data with
-    | Int8 x -> G.map f kind x
-    | UInt8 x -> G.map f kind x
-    | Int16 x -> G.map f kind x
-    | UInt16 x -> G.map f kind x
-    | _ -> raise (BadDataType ("map_int", ""))
+  (** [set_* data which_datum value] sets a single element of [data] at
+      the location specified by the array [which_datum] to [value]. *)
+  let set_int data which_datum value =
+    let f x = Bigarray.Genarray.set x which_datum value in
+    match data with
+      | Int8 x -> f x
+      | UInt8 x -> f x
+      | Int16 x -> f x
+      | UInt16 x -> f x
+      | _ -> raise (BadDataType ("set_int", ""))
 
-let map_int32 f kind data =
-  match data with
-    | Int32 x -> G.map f kind x
-    | _ -> raise (BadDataType ("map_int32", ""))
+  let set_int32 data which_datum value =
+    let f x = Bigarray.Genarray.set x which_datum value in
+    match data with
+      | Int32 x -> f x
+      | _ -> raise (BadDataType ("set_int32", ""))
 
-let map_float f kind data =
-  match data with
-    | Float32 x -> G.map f kind x
-    | Float64 x -> G.map f kind x
-    | _ -> raise (BadDataType ("map_float", ""))
+  let set_float data which_datum value =
+    let f x = Bigarray.Genarray.set x which_datum value in
+    match data with
+      | Float32 x -> f x
+      | Float64 x -> f x
+      | _ -> raise (BadDataType ("set_float", ""))
 
-(** [fold_* f initial b]
-    Like Array.fold_left and List.fold_left, but over an entire data set.
-    Note: The Bigarray is flattened, so this function works over all of
-    the elements, regardless of the Bigarray dimensions.
-*)
-let fold_int f initial data =
-  match data with
-    | Int8 x -> G.fold f initial x
-    | UInt8 x -> G.fold f initial x
-    | Int16 x -> G.fold f initial x
-    | UInt16 x -> G.fold f initial x
-    | _ -> raise (BadDataType ("fold_int", ""))
+  (** {6 Convenience, Array-module-like functions} *)
 
-let fold_int32 f initial data =
-  match data with
-    | Int8 x -> G.fold f initial x
-    | _ -> raise (BadDataType ("fold_int32", ""))
+  (** Number of elements in the whole data set. *)
+  let elems b =
+    let dims = dims b in
+    Array.fold_left ( * ) 1 dims
 
-let fold_float f initial data =
-  match data with
-    | Float32 x -> G.fold f initial x
-    | Float64 x -> G.fold f initial x
-    | _ -> raise (BadDataType ("fold_float", ""))
+  (** [apply_* f b] applies [f] to every element of [b], modifying [b] in place. *)
+  let apply_int f data =
+    match data with
+      | Int8 x -> Genarray.apply f x
+      | UInt8 x -> Genarray.apply f x
+      | Int16 x -> Genarray.apply f x
+      | UInt16 x -> Genarray.apply f x
+      | _ -> raise (BadDataType ("apply_int", ""))
+
+  let apply_int32 f data =
+    match data with
+      | Int32 x -> Genarray.apply f x
+      | _ -> raise (BadDataType ("apply_int32", ""))
+
+  let apply_float f data =
+    match data with
+      | Float32 x -> Genarray.apply f x
+      | Float64 x -> Genarray.apply f x
+      | _ -> raise (BadDataType ("apply_float", ""))
+
+  (** [map_* f kind b] applies [f] to every element of [b], returning the
+      resulting values.  [b] is not changed. *)
+  let map_int f kind data =
+    match data with
+      | Int8 x -> Genarray.map f kind x
+      | UInt8 x -> Genarray.map f kind x
+      | Int16 x -> Genarray.map f kind x
+      | UInt16 x -> Genarray.map f kind x
+      | _ -> raise (BadDataType ("map_int", ""))
+
+  let map_int32 f kind data =
+    match data with
+      | Int32 x -> Genarray.map f kind x
+      | _ -> raise (BadDataType ("map_int32", ""))
+
+  let map_float f kind data =
+    match data with
+      | Float32 x -> Genarray.map f kind x
+      | Float64 x -> Genarray.map f kind x
+      | _ -> raise (BadDataType ("map_float", ""))
+
+  (** [fold_* f initial b]
+      Like Array.fold_left and List.fold_left, but over an entire data set.
+      Note: The Bigarray is flattened, so this function works over all of
+      the elements, regardless of the Bigarray dimensions. *)
+  let fold_int f initial data =
+    match data with
+      | Int8 x -> Genarray.fold f initial x
+      | UInt8 x -> Genarray.fold f initial x
+      | Int16 x -> Genarray.fold f initial x
+      | UInt16 x -> Genarray.fold f initial x
+      | _ -> raise (BadDataType ("fold_int", ""))
+
+  let fold_int32 f initial data =
+    match data with
+      | Int8 x -> Genarray.fold f initial x
+      | _ -> raise (BadDataType ("fold_int32", ""))
+
+  let fold_float f initial data =
+    match data with
+      | Float32 x -> Genarray.fold f initial x
+      | Float64 x -> Genarray.fold f initial x
+      | _ -> raise (BadDataType ("fold_float", ""))
+end
 
 module SD =
 struct
-  type interface_id = InterfaceID of int32
-  type data_id = DataID of int32
+  open Hdf4
 
   (** [read_data ?name ?index interface] -
       Must provide ONE of [name] OR [index].  It return an object containing
@@ -520,7 +549,7 @@ struct
         method field_types = field_types
         method field_sizes = field_sizes
         method field_num_attrs = field_num_attrs
-        method data = G.cast cast data
+        method data = Genarray.cast cast data
       end
     )
 
