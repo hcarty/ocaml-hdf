@@ -2,6 +2,7 @@
 
 open Bigarray
 open ExtBigarray
+open Mylib.General
 
 (** {6 Low Level Functions} *)
 
@@ -100,25 +101,42 @@ struct
       file.
   *)
   type t =
-      Int8 of (int, Bigarray.int8_signed_elt, Bigarray.c_layout) Bigarray.Genarray.t
-    | UInt8 of (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
-    | Int16 of (int, Bigarray.int16_signed_elt, Bigarray.c_layout) Bigarray.Genarray.t
-    | UInt16 of (int, Bigarray.int16_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t
-    | Int32 of (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Genarray.t
-    | Float32 of (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Genarray.t
-    | Float64 of (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Genarray.t
+      Int8 of (int, int8_signed_elt, c_layout) Genarray.t
+    | UInt8 of (int, int8_unsigned_elt, c_layout) Genarray.t
+    | Int16 of (int, int16_signed_elt, c_layout) Genarray.t
+    | UInt16 of (int, int16_unsigned_elt, c_layout) Genarray.t
+    | Int32 of (int32, int32_elt, c_layout) Genarray.t
+    | Float32 of (float, float32_elt, c_layout) Genarray.t
+    | Float64 of (float, float64_elt, c_layout) Genarray.t
 
   (** Create a bigarray of the appropriate type, wrapped as an [Hdf.t]. *)
   let create (data_type : data_t) dimensions =
-    let f x = Bigarray.Genarray.create x Bigarray.c_layout dimensions in
+    let f x = Genarray.create x c_layout dimensions in
     match data_type with
-        `int8 -> Int8 (f Bigarray.int8_signed)
-      | `uint8 -> UInt8 (f Bigarray.int8_unsigned)
-      | `int16 -> Int16 (f Bigarray.int16_signed)
-      | `uint16 -> UInt16 (f Bigarray.int16_unsigned)
-      | `int32 -> Int32 (f Bigarray.int32)
-      | `float32 -> Float32 (f Bigarray.float32)
-      | `float64 -> Float64 (f Bigarray.float64)
+        `int8 -> Int8 (f int8_signed)
+      | `uint8 -> UInt8 (f int8_unsigned)
+      | `int16 -> Int16 (f int16_signed)
+      | `uint16 -> UInt16 (f int16_unsigned)
+      | `int32 -> Int32 (f int32)
+      | `float32 -> Float32 (f float32)
+      | `float64 -> Float64 (f float64)
+
+  (** [to_* data] returns the Genarray.t wrapped in [data]. Raises
+      [BadDataType] if the wrong data type is provided. *)
+  let to_int8 data = function
+      Int8 x -> x | _ -> raise (BadDataType ("Hdf4.int8", ""))
+  let to_uint8 data = function
+      UInt8 x -> x | _ -> raise (BadDataType ("Hdf4.uint8", ""))
+  let to_int16 data = function
+      Int16 x -> x | _ -> raise (BadDataType ("Hdf4.int16", ""))
+  let to_uint16 data = function
+      UInt8 x -> x | _ -> raise (BadDataType ("Hdf4.uint16", ""))
+  let to_int32 data = function
+      Int32 x -> x | _ -> raise (BadDataType ("Hdf4.int32", ""))
+  let to_float32 data = function
+      Float32 x -> x | _ -> raise (BadDataType ("Hdf4.float32", ""))
+  let to_float64 data = function
+      Float64 x -> x | _ -> raise (BadDataType ("Hdf4.float64", ""))
 
   (** {6 Internal library functions } *)
 
@@ -129,7 +147,8 @@ struct
   let is_hdf filename = match h_ishdf filename with 1 -> true | _ -> false
 
   (** Convert HDF data type to a data_t *)
-  external hdf_datatype_to_mlvariant: int32 -> data_t = "hdf_datatype_to_mlvariant"
+  external hdf_datatype_to_mlvariant: int32 -> data_t =
+    "hdf_datatype_to_mlvariant"
 
   (** Get a string representation for a given data type. *)
   let ( _type_size_in_bytes : data_t -> int ) = function
@@ -163,7 +182,7 @@ struct
 
   (** [dims data] returns an array holding the dimensions of [data]. *)
   let dims data =
-    let f x = Bigarray.Genarray.dims x in
+    let f x = Genarray.dims x in
     match data with
         Int8 x -> f x
       | UInt8 x -> f x
@@ -176,7 +195,7 @@ struct
   (** [sub data initial_index length] returns a subsection of [data] of length
       [length] starting from [initial_index]. *)
   let sub data initial_index length =
-    let f x = Bigarray.Genarray.sub_left x initial_index length in
+    let f x = Genarray.sub_left x initial_index length in
     match data with
         Int8 x -> Int8 (f x)
       | UInt8 x -> UInt8 (f x)
@@ -188,7 +207,7 @@ struct
 
   (** [reshape data dims] works in exactly the same way as Bigarray.reshape *)
   let reshape data dims =
-    let f x = Bigarray.reshape x dims in
+    let f x = reshape x dims in
     match data with
         Int8 x -> Int8 (f x)
       | UInt8 x -> UInt8 (f x)
@@ -201,7 +220,7 @@ struct
   (** [slice data new_dimensions] returns a subarray of [data] with dimensions
       [new_dimensions]. *)
   let slice data new_dimensions =
-    let f x = Bigarray.Genarray.slice_left x new_dimensions in
+    let f x = Genarray.slice_left x new_dimensions in
     match data with
         Int8 x -> Int8 (f x)
       | UInt8 x -> UInt8 (f x)
@@ -213,7 +232,7 @@ struct
 
   (** [blit source dest] copies the data from [source] to [dest]. *)
   let blit source dest =
-    let f x y = Bigarray.Genarray.blit x y in
+    let f x y = Genarray.blit x y in
     match (source, dest) with
         (Int8 x, Int8 y) -> f x y
       | (UInt8 x, UInt8 y) -> f x y
@@ -227,7 +246,7 @@ struct
   (** [get_* data which_datum] returns a single element from [data] at
       the location specified by the array [which_datum]. *)
   let get_int data which_datum =
-    let f x = Bigarray.Genarray.get x which_datum in
+    let f x = Genarray.get x which_datum in
     match data with
       | Int8 x -> f x
       | UInt8 x -> f x
@@ -236,13 +255,13 @@ struct
       | _ -> raise (BadDataType ("get_int", ""))
 
   let get_int32 data which_datum =
-    let f x = Bigarray.Genarray.get x which_datum in
+    let f x = Genarray.get x which_datum in
     match data with
       | Int32 x -> f x
       | _ -> raise (BadDataType ("get_int32", ""))
 
   let get_float data which_datum =
-    let f x = Bigarray.Genarray.get x which_datum in
+    let f x = Genarray.get x which_datum in
     match data with
       | Float32 x -> f x
       | Float64 x -> f x
@@ -251,7 +270,7 @@ struct
   (** [set_* data which_datum value] sets a single element of [data] at
       the location specified by the array [which_datum] to [value]. *)
   let set_int data which_datum value =
-    let f x = Bigarray.Genarray.set x which_datum value in
+    let f x = Genarray.set x which_datum value in
     match data with
       | Int8 x -> f x
       | UInt8 x -> f x
@@ -260,13 +279,13 @@ struct
       | _ -> raise (BadDataType ("set_int", ""))
 
   let set_int32 data which_datum value =
-    let f x = Bigarray.Genarray.set x which_datum value in
+    let f x = Genarray.set x which_datum value in
     match data with
       | Int32 x -> f x
       | _ -> raise (BadDataType ("set_int32", ""))
 
   let set_float data which_datum value =
-    let f x = Bigarray.Genarray.set x which_datum value in
+    let f x = Genarray.set x which_datum value in
     match data with
       | Float32 x -> f x
       | Float64 x -> f x
@@ -279,7 +298,8 @@ struct
     let dims = dims b in
     Array.fold_left ( * ) 1 dims
 
-  (** [apply_* f b] applies [f] to every element of [b], modifying [b] in place. *)
+  (** [apply_* f b] applies [f] to every element of [b], modifying [b] in
+      place. *)
   let apply_int f data =
     match data with
       | Int8 x -> Genarray.apply f x
@@ -348,83 +368,101 @@ module SD =
 struct
   open Hdf4
 
-  (** [read_data ?name ?index interface] -
-      Must provide ONE of [name] OR [index].  It return an object containing
-      the SDS contents and related metadata. *)
-  let read_data ?name ?index interface =
-    let sds_id =
-      match name, index with
-          None, None
-        | Some _, Some _ -> raise (Invalid_argument "Hdf.SD.read_data")
-        | Some n, None -> sd_select interface (sd_nametoindex interface n)
-        | None, Some i -> sd_select interface i
-    in
+  (** [select ?name ?index interface] will give the sds_id of the given
+      [name] or [index] associated with the SD [interface]. *)
+  let select ?name ?index interface =
+    match name, index with
+        None, None
+      | Some _, Some _ -> raise (Invalid_argument "Hdf.SD.get_id")
+      | Some n, None ->
+          sd_select interface.sdid (sd_nametoindex interface.sdid n)
+      | None, Some i -> sd_select interface.sdid i
 
-    (* Remember only the first [rank] elements of [dimsizes] actually mean
-       anything for the SDS being read. *)
+  (** [info_sds sds_id] can be used when a SDS is already selected. *)
+  let info_sds sds_id =
     let (sds_name, rank, dimsizes, data_type, num_attrs) =
       sd_getinfo sds_id
     in
-
-    (* Create the Hdf.t which will hold the SDS contents *)
-    let data =
-      create
-        (hdf_datatype_to_mlvariant data_type)
-        (Array.init (Int32.to_int rank) (fun i -> Int32.to_int dimsizes.(i)))
+    let dims =
+      Array.init (Int32.to_int rank) (fun i -> Int32.to_int dimsizes.(i))
     in
-
-    (* Always read the entire data set.  The "stride" option is set to NULL. *)
-    let start = Array.make (Int32.to_int rank) 0l in
-    let edges = Array.init (Int32.to_int rank) (fun i -> dimsizes.(i)) in
-
-    let f x = sd_readdata sds_id start edges x in
-    let () =
-      match data with
-          Int8 x -> f x
-        | UInt8 x -> f x
-        | Int16 x -> f x
-        | UInt16 x -> f x
-        | Int32 x -> f x
-        | Float32 x -> f x
-        | Float64 x -> f x
-    in
-
-    sd_endaccess sds_id;
     (
-      object
-        method data = data
-        method name = sds_name
-        method dimsizes = dimsizes
-        method data_type = data_type
-        method num_attrs = num_attrs
-      end
-    )
+      sds_name,
+      dims,
+      hdf_datatype_to_mlvariant data_type,
+      Int32.to_int num_attrs
+    )    
 
-  (** [get_spec_list sd_id] returns a list of the information given by {!sd_getinfo}
-      for each SDS available through the given [sd_id] interface.
-  *)
-  let get_spec_list interface =
-    let rec f i =
-      try
-        let sds_id = sd_select interface i in
-        let info = sd_getinfo sds_id in
-        sd_endaccess sds_id;
-        info :: f (Int32.add i 1l)
-      with
-          (* TODO - This isn't a very good error checking method. *)
-        Failure x ->
-          if i > 0l then
-            []
-          else
-            failwith x
-    in
-    f 0l
+  (** [read_ga ?name ?index kind interface] -
+      Must provide ONE of [name] OR [index].  It return a Bigarray containing
+      the SDS contents. *)
+  let read_ga ?name ?index kind interface =
+    try_finally
+      (select ?name ?index interface)
+      sd_endaccess
+      (
+        fun sds_id ->
+          let (sds_name, dims, data_type, num_attrs) = info_sds sds_id in
+          let ba = Genarray.create kind c_layout dims in
+          (* Always read the entire data set.  The "stride" option is set to
+             NULL. *)
+          let start = Array.make (Array.length dims) 0l in
+          let edges = Array.map Int32.of_int dims in
+          sd_readdata sds_id start edges ba;
+          ba
+      )
+
+  (** [read_data ?name ?index interface] -
+      Must provide ONE of [name] OR [index].  It return an object containing
+      the SDS contents and related metadata. *)
+  let read ?name ?index interface =
+    try_finally
+      (select ?name ?index interface)
+      sd_endaccess
+      (
+        fun sds_id ->
+          let (sds_name, dims, data_type, num_attrs) = info_sds sds_id in
+          let data =
+            let f k = read_ga ?name ?index k interface in
+            match data_type with
+                `int8 -> Int8 (f int8_signed)
+              | `uint8 -> UInt8 (f int8_unsigned)
+              | `int16 -> Int16 (f int16_signed)
+              | `uint16 -> UInt16 (f int16_unsigned)
+              | `int32 -> Int32 (f int32)
+              | `float32 -> Float32 (f float32)
+              | `float64 -> Float64 (f float64)
+          in
+          (
+            object
+              method data = data
+              method name = sds_name
+              method dims = dims
+              method data_type = data_type
+              method num_attrs = num_attrs
+            end
+          )
+      )
+
+  (** [get_specs sd_id] returns an array of the information given by
+      {!sd_getinfo for each SDS available through the given [sd_id]
+      interface. *)
+  let get_specs interface =
+    let (num_sds, _) = sd_fileinfo interface.sdid in
+    Array.init (Int32.to_int num_sds)
+      (
+        fun i ->
+          try_finally
+            (sd_select interface.sdid (Int32.of_int i))
+            sd_endaccess
+            info_sds
+      )
 
   (** [read_all sdid] returns a list of the SDS contents of [sdid] *)
   let read_all interface =
     let rec f index l =
       try
-        f (Int32.add index 1l) (read_data ~index interface :: l)
+        f (Int32.add index 1l) (read ~index interface :: l)
       with
           (* TODO - This isn't a very good error checking method. *)
         Failure x ->
@@ -453,7 +491,7 @@ struct
   (** [create_data sd_id name data] - create and write an SDS named [name] *)
   let create_data interface name sds =
     match 
-      sd_create interface name (_hdf_type_from_t sds)
+      sd_create interface.sdid name (_hdf_type_from_t sds)
         (Array.map Int32.of_int (dims sds))
     with
         (-1l) ->
@@ -465,20 +503,38 @@ struct
       | sds_id ->
           write_data sds_id sds;
           sd_endaccess sds_id
+
+  (** CONVENIENCE FUNCTIONS for browsing SDSs *)
+
+  (** [info ?name ?index interface] provides a wrapper around
+      {Hdf.sd_getinfo} to provide a cleaner, more OCaml-friendly
+      interface. *)
+  let info ?name ?index interface =
+    try_finally
+      (select ?name ?index interface)
+      sd_endaccess
+      (fun sds_id -> info_sds sds_id)
+
+  (** [data_type ?name ?index interface] returns the type of the given
+      [name] or [index] associated with the SD [interface]. *)
+  let data_type ?name ?index interface =
+    let (_, _, data_type, _) = info ?name ?index interface in
+    data_type
 end
 
 module Vdata =
 struct
-  type interface_id = InterfaceID of int32
-  type data_id = DataID of int32
+  open Hdf4
 
   (** Allocate space to hold Vdata *)
   let allocate_vdata_bigarray bytes =
     Genarray.create int8_unsigned c_layout [|bytes|]
 
-  let ref_from_index file_id index =
+  (** [ref_from_index interface index] gets the Vdata ref associated with the
+      [index]'th Vdata entry. *)
+  let ref_from_index interface index =
     let rec f i vdata_ref =
-      let new_ref = vs_getid file_id vdata_ref in
+      let new_ref = vs_getid interface.fid vdata_ref in
       if i = index then
         new_ref
       else
@@ -490,12 +546,14 @@ struct
     else
       vdata_ref
 
-  let index_from_ref file_id target_ref =
+  (** [index_from_ref interface target_ref] gets the Vdata entry index
+      associated with the Vdata ref [target_ref]. *)
+  let index_from_ref interface target_ref =
     let rec f i vdata_ref =
-      let new_ref = vs_getid file_id vdata_ref in
+      let new_ref = vs_getid interface.fid vdata_ref in
       let () =
         if vdata_ref = -1l then
-          raise (Invalid_argument "Hdf.Vdata.ref_from_index")
+          raise (Invalid_argument "Hdf.Vdata.index_from_ref")
         else
           ()
       in
@@ -506,7 +564,7 @@ struct
     in
     f 0 (-1l)
 
-  (** [read_vdata_by_id vdata_id] returns the given Vdata, along with specs. *)
+  (** [read_data_by_id vdata_id] returns the given Vdata, along with specs. *)
   let read_data_by_id ~cast vdata_id =
     let (n_records, interlace, fields, vdata_size, vdata_name) =
       vs_inquire vdata_id
@@ -527,14 +585,12 @@ struct
       Array.init num_fields (fun i -> vs_fnattrs vdata_id (Int32.of_int i))
     in
     (* Create a Bigarray to hold the data, and suck it all up.
-       The total size in bytes of the Vdata is vdata_size * n_records.
-    *)
+       The total size in bytes of the Vdata is vdata_size * n_records. *)
     let data =
       allocate_vdata_bigarray (Int32.to_int vdata_size * Int32.to_int n_records)
     in
     vs_setfields vdata_id fields;
     vs_read vdata_id data n_records;
-    
     (
       object
         method n_records = n_records
@@ -555,13 +611,13 @@ struct
 
   (** [read_data_by_id_nocast] *)
   let read_data_by_id_nocast interface =
-    read_data_by_id ~cast:Bigarray.int8_unsigned interface
+    read_data_by_id ~cast:int8_unsigned interface
 
-  (** [read_data ~name interface] *)
+  (** [read_data ~name ~cast interface] *)
   let read_data ~name ~cast interface =
     let vdata_id =
-      let vdata_ref = vs_find interface name in
-      vs_attach interface vdata_ref "r"
+      let vdata_ref = vs_find interface.fid name in
+      vs_attach interface.fid vdata_ref "r"
     in
     let vdata = read_data_by_id ~cast vdata_id in
     vs_detach vdata_id;
@@ -569,44 +625,42 @@ struct
 
   (** [read_data_nocast] *)
   let read_data_nocast ~name interface =
-    read_data ~name ~cast:Bigarray.int8_unsigned interface
+    read_data ~name ~cast:int8_unsigned interface
 
-  (** [vdata_read_map f file_id] will go through each Vdata in [file_id],
+  (** [vdata_read_map f interface] will go through each Vdata in [interface],
       applying [f] and returning a list of the results.  This is mainly meant
       to be used in the [read_vdata_t_list] function below but may have other
-      uses.
-  *)
-  let vdata_read_map f file_id =
-    let vdata_ref_0 = vs_getid file_id (-1l) in
+      uses. *)
+  let vdata_read_map f interface =
+    let vdata_ref_0 = vs_getid interface.fid (-1l) in
     let rec loop l vdata_ref =
-      let vdata_id = vs_attach file_id vdata_ref "r" in
+      let vdata_id = vs_attach interface.fid vdata_ref "r" in
       if vdata_id = -1l then
         List.rev l
       else
         let result = f vdata_id in
         let () = vs_detach vdata_id in
-        loop (result :: l) (vs_getid file_id vdata_ref)
+        loop (result :: l) (vs_getid interface.fid vdata_ref)
     in
     loop [] vdata_ref_0
 
-  (** [read_all file_id] will return a list of Vdata objects, one for each
-      Vdata in [file_id].  The data in the returned list are in the same order
-      as those in [file_id].
-
-  *)
+  (** [read_all interface] will return a list of Vdata objects, one for each
+      Vdata in [interface].  The data in the returned list are in the same order
+      as those in [interface]. *)
   let read_all interface =
     vdata_read_map read_data_by_id_nocast interface
 
-  (** [write_vdata file_id data] will write out the Vdata+specs given in [data].
-      The combination of [read_vdata_t] and [write_vdata_t] should preserve the
-      original Vdata structure in the new file.
-  *)
-  let write_data file_id data =
-    let vdata_id = vs_attach file_id (-1l) "w" in
+  (** [write_vdata interface data] will write out the Vdata+specs given in
+      [data]. The combination of [read_vdata_t] and [write_vdata_t] should
+      preserve the original Vdata structure in the new file. *)
+  let write_data interface data =
+    let vdata_id = vs_attach interface.fid (-1l) "w" in
     let field_name_array = Array.of_list (Pcre.split ~pat:"," data#fields) in
     let field_defs =
       Array.init (Array.length data#field_types)
-        (fun i -> ( data#field_types.(i), field_name_array.(i), data#field_orders.(i) ))
+        (fun i ->
+           ( data#field_types.(i), field_name_array.(i),
+             data#field_orders.(i) ))
     in
     Array.iter
       (fun (ftype, fname, forder) -> vs_fdefine vdata_id fname ftype forder)
@@ -621,14 +675,13 @@ struct
     vs_detach vdata_id;
     ()
 
-  (** [write_vdata_list file_id vdata_list] will write out each element of
-      [vdata_list] to [file_id] in order.
-  *)
-  let rec write_data_list file_id vdata_list =
+  (** [write_vdata_list interface vdata_list] will write out each element of
+      [vdata_list] to [interface] in order. *)
+  let rec write_data_list interface vdata_list =
     match vdata_list with
         hd :: tl ->
-          write_data file_id hd;
-          write_data_list file_id tl
+          write_data interface hd;
+          write_data_list interface tl
       | [] ->
           ()
 

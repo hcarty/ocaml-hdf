@@ -1,6 +1,6 @@
 OCAMLMAKEFILE = ../inc/OCamlMakefile
 ANNOTATE = yes
-PACKS = bigarray extbigarray pcre
+PACKS = bigarray extbigarray pcre mylib
 LIBS =
 OCAMLLIBPATH =
 INCDIRS=/usr/include/hdf
@@ -24,7 +24,7 @@ includes:
 	perl touchup.pl mfhdf_h
 
 interface:
-	ocamlfind ocamlc -package extbigarray,pcre -i hdf.ml > hdf.mli
+	ocamlfind ocamlc -package extbigarray,pcre,mylib -i hdf.ml > hdf.mli
 
 install: all interface libinstall
 
