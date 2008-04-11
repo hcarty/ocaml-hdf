@@ -40,7 +40,23 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "hdf_impl.h"
+struct sd_info_struct {
+    char sds_name[64];
+    char data_type_string[32];
+    int32 dimsizes[MAX_VAR_DIMS];
+    int32 rank;
+    int32 data_type;
+    int32 num_attrs;
+};
+
+#define FIELD_SIZE 1000
+struct vs_info_struct {
+    char vdata_name[VSNAMELENMAX];
+    char field_name_list[FIELD_SIZE];
+    hdf_int32 vdata_size;
+    hdf_int32 interlace_mode;
+    hdf_int32 n_records;
+};
 
 // Allow for ridiculously long exception strings... mainly in case of stupidly long filenames.
 #define MAX_EXCEPTION_MESSAGE_LENGTH 10000

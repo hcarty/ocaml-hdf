@@ -1,36 +1,44 @@
-OCAMLMAKEFILE = ../inc/OCamlMakefile
-ANNOTATE = yes
-PACKS = bigarray extbigarray pcre mylib
-LIBS =
-OCAMLLIBPATH =
-INCDIRS=/usr/include/hdf
-LIBDIRS=/usr/lib/hdf $(OCAMLLIBPATH)
-EXTLIBDIRS =
+# The target library's name
+LIBRARY = hdf
 
-CLIBS = mfhdf df z jpeg camlidl
-CFLAGS = -g
+# Commands to use for ocamlbuild and ocamlfind (in case they are not in $PATH)
+OCAMLBUILD = ocamlbuild -tag debug
+OCAMLFIND = ocamlfind
 
-# We turn on debugger support in all our modules for now.
-OCAMLBCFLAGS =
-OCAMLBLDFLAGS =
-RESULT = hdf
+export CAMLIDL_LIB_DIR = -L$(shell ocamlc -where)
+export CAMLIDL_LIB = -lcamlidl
+export HDF_CFLAGS = -I/usr/include
+export HDF_LIBS_DIRS = -L/usr/lib
+export HDF_LIBS_LIBS = -lmfhdf -ldf -lz -ljpeg
+export HDF_LIBS = $(HDF_LIBS_DIRS) $(HDF_LIBS_LIBS)
 
-SOURCES = hdf_wrapper.idl hdf_impl.c hdf.ml
+# Where ocamlbuild put the build files
+BUILD_DIR = _build/
 
-all: includes byte-code-library native-code-library top
+# Default to building bytecoode and native code libraries
+all: byte opt
 
-includes:
-	perl touchup.pl hdf_h
-	perl touchup.pl mfhdf_h
+byte:
+	$(OCAMLBUILD) $(LIBRARY).cma
 
-interface:
-	ocamlfind ocamlc -package extbigarray,pcre,mylib -i hdf.ml > hdf.mli
+opt:
+	$(OCAMLBUILD) $(LIBRARY).cmxa
 
-install: all interface libinstall
+# (Un)Installation using ocamlfind
+install:
+	$(OCAMLFIND) install $(LIBRARY) \
+	    META \
+	    $(BUILD_DIR)*hdf.cmi \
+	    $(BUILD_DIR)*hdf.cma \
+	    $(BUILD_DIR)*hdf.cmxa \
+	    $(BUILD_DIR)*hdf_stubs.so \
+	    $(BUILD_DIR)*hdf_stubs.a \
+	    $(BUILD_DIR)*hdf.a
 
-mrproper: clean
-	rm -f *~ *.cmi *.cmo *.top *.so hdf_h.inc mfhdf_h.inc
+uninstall:
+	$(OCAMLFIND) remove $(LIBRARY)
 
-.PHONY: mrproper
+# Clean up the build process using ocamlbuild
+clean:
+	$(OCAMLBUILD) -clean
 
-include $(OCAMLMAKEFILE)
