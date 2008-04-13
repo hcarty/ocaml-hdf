@@ -95,16 +95,20 @@ struct
 
   (** [close_file interface] closes an HDF file opened with [open_file] *)
   let close_file interface =
-    sd_end interface.sdid;
-    v_end interface.fid;
-    h_close interface.fid;
+    (* Only close the interface IF it is actually open *)
+    let if_open f =
+      function
+          -1l -> ()
+        | i -> f i
+    in
+    if_open sd_end interface.sdid;
+    if_open (fun i -> v_end i; h_close i) interface.fid;
     ()
 
   (** The basic type which encapsulates the HDF data types we can
       support.  These are encapsulated in a variant type to avoid having
       to write explicit cases for every data type within a given HDF4
-      file.
-  *)
+      file. *)
   type t =
       Int8 of (int, int8_signed_elt, c_layout) Genarray.t
     | UInt8 of (int, int8_unsigned_elt, c_layout) Genarray.t
