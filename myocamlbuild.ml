@@ -64,7 +64,7 @@ dispatch begin function
 
       (* Include the HDF and camlidl compiler options for ocamlmklib *)
       flag ["ocamlmklib"; "c"]
-        (S[hdf_libs; camlidl_lib_dir; camlidl_lib]);
+        (S[hdf_libs_dirs; hdf_libs_libs; camlidl_lib_dir; camlidl_lib]);
 
       (* gcc needs to know where to find the needed #includes *)
       flag ["c"; "compile"]
