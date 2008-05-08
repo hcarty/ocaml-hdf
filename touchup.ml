@@ -23,6 +23,11 @@ let manual_function_attributes =
       function_attrs = None;
       parameter_attrs = Some ["dimsizes", ["size_is(rank)"]];
     };
+    {
+      function_name = "SDsetcompress";
+      function_attrs = None;
+      parameter_attrs = Some ["c_info", ["in"; "ref"]];
+    };
   ]
 
 (* Functions which simply return a 1 or 0 for success vs failure. *)
@@ -48,6 +53,8 @@ let returns_error_code =
     "SDendaccess";
     "SDfileinfo";
     "SDgetinfo";
+    "SDgetcompress";
+    "SDsetcompress";
   ]
 let hdf_error_return = "HDF_RESULT"
 
@@ -139,7 +146,6 @@ let function_attributes return_type name =
             | 2 ->
                 String.lowercase a.(0) ^ "_" ^ a.(1)
             | _ -> raise (Failure "Bad result in function caps check")
-                  
         ) ^ ")"]
       );
       (* Plplot names many of their functions c_* to avoid clashes with certain

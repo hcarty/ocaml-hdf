@@ -36,11 +36,11 @@
 #define _DFACC_READ 1
 #define _DFACC_WRITE 2
 #define _DFACC_CREATE 4
-#define _DFACC_ALL 7
+//#define _DFACC_ALL 7
 
-#define _DFACC_RDONLY 1
-#define _DFACC_RDWR 3
-#define _DFACC_CLOBBER 4
+//#define _DFACC_RDONLY 1
+//#define _DFACC_RDWR 3
+//#define _DFACC_CLOBBER 4
 #include "hdf_h.inc"
 
 #include "mfhdf_h.inc"
