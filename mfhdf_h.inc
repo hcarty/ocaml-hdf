@@ -20,6 +20,8 @@ typedef enum { NOT_SDAPI_ID = -1, SD_ID = 0, SDS_ID, DIM_ID } hdf_idtype_t;
 [mlname(sd_getdimstrs)] intn SDgetdimstrs ( int32 id, [string, out, length_is(1024)] char * l, [string, out, length_is(1024)] char * u, [string, out, length_is(1024)] char * f, intn len );
 [mlname(sd_setexternalfile)] intn SDsetexternalfile ( int32 id, [string] const char * filename, int32 offset );
 [mlname(sd_setnbitdataset)] intn SDsetnbitdataset ( int32 id, intn start_bit, intn bit_len, intn sign_ext, intn fill_one );
+[mlname(sd_setcompress)] HDF_RESULT SDsetcompress ( int32 id, comp_coder_t type, [in, ref] comp_info * c_info );
+[mlname(sd_getcompress)] HDF_RESULT SDgetcompress ( int32 id, [out] comp_coder_t* type, [out] comp_info * c_info );
 [mlname(sd_findattr)] int32 SDfindattr ( int32 id, [string] const char * attrname );
 [mlname(sd_idtoref)] int32 SDidtoref ( int32 id );
 [mlname(sd_reftoindex)] int32 SDreftoindex ( int32 fid, int32 ref );

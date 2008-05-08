@@ -107,11 +107,11 @@
     intn SDsetnbitdataset
         (int32 id, intn start_bit, intn bit_len, intn sign_ext, intn fill_one);
 
-//    intn SDsetcompress
-//        (int32 id, comp_coder_t type, comp_info *c_info);
+    intn SDsetcompress
+        (int32 id, comp_coder_t type, comp_info *c_info);
 
-//    intn SDgetcompress
-//        (int32 id, comp_coder_t* type, comp_info *c_info);
+    intn SDgetcompress
+        (int32 id, comp_coder_t* type, comp_info *c_info);
 
     int32 SDfindattr
         (int32 id, const char *attrname);

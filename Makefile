@@ -7,8 +7,8 @@ OCAMLFIND = ocamlfind
 
 export CAMLIDL_LIB_DIR = -L$(shell ocamlc -where)
 export CAMLIDL_LIB = -lcamlidl
-export HDF_CFLAGS = -I/usr/include
-export HDF_LIBS_DIRS = -L/usr/lib
+export HDF_CFLAGS = -I/home/hcarty/Applications/hdf4/include/
+export HDF_LIBS_DIRS = -L/home/hcarty/Applications/hdf4/lib/
 export HDF_LIBS_LIBS = -lmfhdf -ldf -lz -ljpeg
 export HDF_LIBS = $(HDF_LIBS_DIRS) $(HDF_LIBS_LIBS)
 

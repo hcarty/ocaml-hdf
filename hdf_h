@@ -2,7 +2,7 @@
         DFACC_READ = _DFACC_READ,
         DFACC_WRITE = _DFACC_WRITE,
         DFACC_CREATE = _DFACC_CREATE,
-        DFACC_ALL = _DFACC_ALL
+//        DFACC_ALL = _DFACC_ALL
     }
     access_type;
 
@@ -54,6 +54,37 @@
         DFE_BVNEW,  DFE_BVSET,  DFE_BVGET,  DFE_BVFIND
     }
     hdf_err_code_t;
+
+    typedef struct {
+    /*
+        struct {
+            intn quality;
+            intn force_baseline;
+        } jpeg;
+        struct {
+            int32 nt;
+            intn sign_ext;
+            intn fill_one;
+            intn start_bit;
+            intn bit_len;
+        } nbit;
+    */
+        struct {
+            intn skp_size;
+        } skphuff;
+        struct {
+            intn level;
+        } deflate;
+    /*
+        struct {
+            int32 options_mask;
+            int32 pixels_per_block;
+            int32 pixels_per_scanline;
+            int32 bits_per_pixel;
+            int32 pixels;
+        } szip;
+    */
+    } comp_info;
 
     // HDF routines
     int32 Hopen (const char *path, access_type acc_mode, int16 ndds);
