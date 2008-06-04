@@ -34,6 +34,7 @@
 #define uint16 hdf_uint16
 
 #include <hdf.h>
+#define MAX_VAR_DIMS H4_MAX_VAR_DIMS
 // XXX END HORRIBLE HACK
 
 /* For debugging - we want to have access to printf, stderr and such */
