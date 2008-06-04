@@ -1,7 +1,6 @@
 #include "hlimits_h.idl"
 
-#define LONG_DEFAULT int32
-[long_default(LONG_DEFAULT), int_default(camlint)] interface HDF {
+[long_default(camlint), int_default(int32)] interface HDF {
 
 #define QUOTEME(x) #x
 #define RAW_ML(x) quote(mlmli, QUOTEME(x));
@@ -15,15 +14,15 @@
     typedef unsigned short int hdf_uint16;
     //typedef long int hdf_int32;
     //typedef unsigned long int hdf_uint32;
-    typedef int intn;
-    typedef unsigned int uintn;
+    typedef long intn;
+    typedef unsigned long uintn;
     typedef float float32;
     typedef double float64;
     typedef [errorcheck(hdf_check_result), errorcode] intn HDF_RESULT;
 
     // XXX A HORRIBLE HACK to get around typedef clashes
-#define int32 long
-#define uint32 long
+#define int32 int
+#define uint32 int
 #define int8 hdf_int8
 #define uint8 hdf_uint8
 #define int16 hdf_int16
