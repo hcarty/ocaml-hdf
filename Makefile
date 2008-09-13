@@ -24,6 +24,9 @@ byte:
 opt:
 	$(OCAMLBUILD) $(LIBRARY).cmxa
 
+mli:
+	$(OCAMLBUILD) $(LIBRARY).inferred.mli
+
 # (Un)Installation using ocamlfind
 install:
 	$(OCAMLFIND) install $(LIBRARY) \
