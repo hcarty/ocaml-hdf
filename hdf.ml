@@ -132,19 +132,19 @@ struct
 
   (** [to_* data] returns the Genarray.t wrapped in [data]. Raises
       [BadDataType] if the wrong data type is provided. *)
-  let to_int8 data = function
+  let to_int8 = function
       Int8 x -> x | _ -> raise (BadDataType ("Hdf4.int8", ""))
-  let to_uint8 data = function
+  let to_uint8 = function
       UInt8 x -> x | _ -> raise (BadDataType ("Hdf4.uint8", ""))
-  let to_int16 data = function
+  let to_int16 = function
       Int16 x -> x | _ -> raise (BadDataType ("Hdf4.int16", ""))
-  let to_uint16 data = function
+  let to_uint16 = function
       UInt8 x -> x | _ -> raise (BadDataType ("Hdf4.uint16", ""))
-  let to_int32 data = function
+  let to_int32 = function
       Int32 x -> x | _ -> raise (BadDataType ("Hdf4.int32", ""))
-  let to_float32 data = function
+  let to_float32 = function
       Float32 x -> x | _ -> raise (BadDataType ("Hdf4.float32", ""))
-  let to_float64 data = function
+  let to_float64 = function
       Float64 x -> x | _ -> raise (BadDataType ("Hdf4.float64", ""))
 
   (** {6 Internal library functions } *)
