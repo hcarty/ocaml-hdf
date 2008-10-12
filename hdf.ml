@@ -400,7 +400,7 @@ struct
       dims,
       hdf_datatype_to_mlvariant data_type,
       Int32.to_int num_attrs
-    )    
+    )
 
   (** [read_ga ?name ?index kind interface] -
       Must provide ONE of [name] OR [index].  It return a Bigarray containing
