@@ -136,7 +136,7 @@ value hdf_datatype_to_mlvariant(value datatype) {
     CAMLreturn(datatype_variant);
 }
 
-int32 mlvariant_to_hdf_datatype(value datatype_variant) {
+value mlvariant_to_hdf_datatype(value datatype_variant) {
     CAMLparam1(datatype_variant);
 
     int32 datatype;
@@ -167,7 +167,7 @@ int32 mlvariant_to_hdf_datatype(value datatype_variant) {
 
 #undef CASE_VARIANT
 
-    CAMLreturnT(int32, datatype);
+    CAMLreturn( caml_copy_int32(datatype) );
 }
 
 int caml_int32_array_length(value ml_array) {

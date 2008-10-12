@@ -155,9 +155,11 @@ struct
   *)
   let is_hdf filename = match h_ishdf filename with 1 -> true | _ -> false
 
-  (** Convert HDF data type to a data_t *)
+  (** Convert HDF data type to and from a data_t *)
   external hdf_datatype_to_mlvariant: int32 -> data_t =
     "hdf_datatype_to_mlvariant"
+  external mlvariant_to_hdf_datatype: data_t -> int32 =
+    "mlvariant_to_hdf_datatype"
 
   (** Get a string representation for a given data type. *)
   let ( _type_size_in_bytes : data_t -> int ) = function
@@ -491,8 +493,9 @@ struct
 
   (** [create_data sd_id name data] - create and write an SDS named [name] *)
   let create_data interface name sds =
-    match 
-      sd_create interface.sdid name (_hdf_type_from_t sds)
+    match
+      sd_create interface.sdid name
+        (mlvariant_to_hdf_datatype (_data_type_from_t sds))
         (Array.map Int32.of_int (dims sds))
     with
         (-1l) ->

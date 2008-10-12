@@ -5,7 +5,7 @@ typedef enum { NOT_SDAPI_ID = -1, SD_ID = 0, SDS_ID, DIM_ID } hdf_idtype_t;
 [mlname(sd_select)] int32 SDselect ( int32 fid, int32 idx );
 [mlname(sd_getinfo)] HDF_RESULT SDgetinfo ( int32 sdsid, [string, out, length_is(1024)] char * name, [out] int32 * rank, [out, size_is(32)] int32 * dimsizes, [out] int32 * nt, [out] int32 * nattr );
 [mlname(sd_nametoindex)] int32 SDnametoindex ( int32 fid, [string] const char * name );
-[mlname(sd_create)] int32 SDcreate ( int32 fid, [string] const char * name, hdf_data_type nt, int32 rank, [size_is(rank)] int32 * dimsizes );
+[mlname(sd_create)] int32 SDcreate ( int32 fid, [string] const char * name, int32 nt, int32 rank, [size_is(rank)] int32 * dimsizes );
 [mlname(sd_getdimid)] int32 SDgetdimid ( int32 sdsid, intn number );
 [mlname(sd_setdimname)] intn SDsetdimname ( int32 id, [string] const char * name );
 [mlname(sd_endaccess)] HDF_RESULT SDendaccess ( int32 id );
