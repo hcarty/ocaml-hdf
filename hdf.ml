@@ -574,6 +574,8 @@ struct
       data_type : Hdf4.data_t;
     }
 
+    type t = sds_t
+
     let read_attributes sds_id =
       let (sds_name, dims, data_type, num_attrs) = info_sds sds_id in
       Array.init num_attrs (
@@ -1048,3 +1050,20 @@ struct
   *)
 end
 
+module Vgroup = struct
+  (** Example:
+  Vgroup [|
+    Vgroup [|
+      SDS (Hdf4.create `int8 [|10|])
+    |];
+    SDS (Hdf4.create `int8 [|10|]);
+  |]
+  *)
+  type vgroup_t =
+    | Vgroup of vgroup_t array
+    | SDS of SD.Generic.t
+    (*| Vdata of Vdata.t*)
+
+  (** TODO -- Just about everything.  Vgroup reading, writing and manipulating
+      code will end up in here eventually. *)
+end
