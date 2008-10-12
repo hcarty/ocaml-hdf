@@ -48,6 +48,7 @@ let returns_error_code =
     "VSsetinterlace";
     "VSsetname";
 
+    "SDattrinfo";
     "SDdiminfo";
     "SDend";
     "SDendaccess";
@@ -55,6 +56,8 @@ let returns_error_code =
     "SDgetinfo";
     "SDgetcompress";
     "SDsetcompress";
+    "SDgetdatastrs";
+    "SDsetdatastrs";
   ]
 let hdf_error_return = "HDF_RESULT"
 
