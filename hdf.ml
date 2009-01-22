@@ -1,8 +1,7 @@
 (** {5 HDF4} *)
 
-open Bigarray
-open ExtBigarray
 open Mylib.General
+open ExtBigarray
 
 (** {6 Low Level Functions} *)
 
