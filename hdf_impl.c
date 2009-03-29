@@ -141,10 +141,9 @@ value mlvariant_to_hdf_datatype(value datatype_variant) {
 
     int32 datatype;
     int variant_number;
-    variant_number = Int_val( hdf_datatype_to_mlvariant(datatype_variant) );
 
 #define CASE_VARIANT(txt, hdf)                                  \
-    if ( Int_val( hash_variant(txt) ) == variant_number ) {     \
+    if ( hash_variant(txt) == datatype_variant ) {              \
         datatype = hdf;                                         \
     }                                                           \
 
