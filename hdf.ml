@@ -1,5 +1,6 @@
 (** {5 HDF4} *)
 
+open Batteries
 open Mylib.General
 open ExtBigarray
 
