@@ -1,8 +1,8 @@
 (** {5 HDF4} *)
 
-open Batteries
 open Mylib.General
 open ExtBigarray
+module Option = Batteries.Option
 
 (** {6 Low Level Functions} *)
 
