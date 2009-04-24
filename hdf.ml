@@ -626,12 +626,6 @@ struct
           | Hdf4.Float64 x -> f x
       ) attrs
 
-    let unless except f x =
-      try
-        Some (f x)
-      with
-      | e when e = except -> None
-
     let read ?name ?index interface =
       let sds = read ?name ?index interface in
       let attrs = wrap_sds_call read_attributes ?name ?index interface in
