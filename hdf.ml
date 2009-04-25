@@ -642,6 +642,14 @@ struct
         data_type = sds#data_type;
       }
 
+    (** [read_all interface] returns an array of the SDS contents of
+        [interface]. *)
+    let read_all interface =
+      let (num_sds, _) = sd_fileinfo interface.sdid in
+      Array.init
+        (Int32.to_int num_sds)
+        (fun i -> read ~index:(Int32.of_int i) interface)
+
     let create data interface =
       match
         sd_create interface.Hdf4.sdid data.name
