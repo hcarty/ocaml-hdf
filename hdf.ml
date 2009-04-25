@@ -915,47 +915,55 @@ struct
 
   (** [read_data_by_id vdata_id] returns the given Vdata, along with specs. *)
   let read_data_by_id ~cast vdata_id =
-    let (n_records, interlace, fields, vdata_size, vdata_name) =
-      vs_inquire vdata_id
-    in
     let vdata_class = vs_getclass vdata_id in
-    let num_attrs = vs_fnattrs vdata_id (-1l) in
-    let num_fields = Int32.to_int (vf_nfields vdata_id) in
-    let field_orders =
-      Array.init num_fields (fun i -> vf_fieldorder vdata_id (Int32.of_int i))
-    in
-    let field_types =
-      Array.init num_fields (fun i -> vf_fieldtype vdata_id (Int32.of_int i))
-    in
-    let field_sizes =
-      Array.init num_fields (fun i -> vf_fieldisize vdata_id (Int32.of_int i))
-    in
-    let field_num_attrs =
-      Array.init num_fields (fun i -> vs_fnattrs vdata_id (Int32.of_int i))
-    in
-    (* Create a Bigarray to hold the data, and suck it all up.
-       The total size in bytes of the Vdata is vdata_size * n_records. *)
-    let data =
-      allocate_vdata_bigarray (Int32.to_int vdata_size * Int32.to_int n_records)
-    in
-    vs_setfields vdata_id fields;
-    vs_read vdata_id data n_records;
-    (
-      object
-        method n_records = n_records
-        method interlace = interlace
-        method fields = fields
-        method size = vdata_size
-        method name = vdata_name
-        method vdata_class = vdata_class
-        method num_attrs = num_attrs
-        method num_fields = num_fields
-        method field_orders = field_orders
-        method field_types = field_types
-        method field_sizes = field_sizes
-        method field_num_attrs = field_num_attrs
-        method data = Genarray.cast cast data
-      end
+    (* XXX TODO FIXME: "SDSVar" should really be a constant taken from the C HDF
+       headers directly, rather than hard-coded in the bindings here.*)
+    if vdata_class = "SDSVar" then (
+      None
+    )
+    else (
+      let (n_records, interlace, fields, vdata_size, vdata_name) =
+        vs_inquire vdata_id
+      in
+      let num_attrs = vs_fnattrs vdata_id (-1l) in
+      let num_fields = Int32.to_int (vf_nfields vdata_id) in
+      let field_orders =
+        Array.init num_fields (fun i -> vf_fieldorder vdata_id (Int32.of_int i))
+      in
+      let field_types =
+        Array.init num_fields (fun i -> vf_fieldtype vdata_id (Int32.of_int i))
+      in
+      let field_sizes =
+        Array.init num_fields (fun i -> vf_fieldisize vdata_id (Int32.of_int i))
+      in
+      let field_num_attrs =
+        Array.init num_fields (fun i -> vs_fnattrs vdata_id (Int32.of_int i))
+      in
+      (* Create a Bigarray to hold the data, and suck it all up.
+         The total size in bytes of the Vdata is vdata_size * n_records. *)
+      let data =
+        allocate_vdata_bigarray
+          (Int32.to_int vdata_size * Int32.to_int n_records)
+      in
+      vs_setfields vdata_id fields;
+      vs_read vdata_id data n_records;
+      Some (
+        object
+          method n_records = n_records
+          method interlace = interlace
+          method fields = fields
+          method size = vdata_size
+          method name = vdata_name
+          method vdata_class = vdata_class
+          method num_attrs = num_attrs
+          method num_fields = num_fields
+          method field_orders = field_orders
+          method field_types = field_types
+          method field_sizes = field_sizes
+          method field_num_attrs = field_num_attrs
+          method data = Genarray.cast cast data
+        end
+      )
     )
 
   (** [read_data_by_id_nocast] *)
@@ -970,7 +978,9 @@ struct
     in
     let vdata = read_data_by_id ~cast vdata_id in
     vs_detach vdata_id;
-    vdata
+    match vdata with
+    | None -> raise (Invalid_argument "Vdata.read_data")
+    | Some vd -> vd
 
   (** [read_data_nocast] *)
   let read_data_nocast ~name interface =
@@ -997,7 +1007,9 @@ struct
       Vdata in [interface].  The data in the returned list are in the same order
       as those in [interface]. *)
   let read_all interface =
-    vdata_read_map read_data_by_id_nocast interface
+    Array.filter_map id (
+      vdata_read_map read_data_by_id_nocast interface
+    )
 
   (** [write_vdata interface data] will write out the Vdata+specs given in
       [data]. The combination of [read_vdata_t] and [write_vdata_t] should
