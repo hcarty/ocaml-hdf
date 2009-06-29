@@ -105,14 +105,14 @@ struct
     if_open (fun i -> v_end i; h_close i) interface.fid;
     ()
 
-    (** [open_file_in f file] opens the HDF4 file [file] and passes the HDF
-        interface to [f].  After [f] completes or raises an exception, [file]
-        will be closed. *)
-    let open_file_in f file =
-      try_finally
-       (open_file file)
-       close_file
-       (fun hdf_interface -> f hdf_interface)
+  (** [open_file_in ?access f file] opens the HDF4 file [file] and passes the
+      HDF interface to [f].  After [f] completes or raises an exception,
+      [file] will be closed. *)
+  let open_file_in ?access f file =
+    try_finally
+      (open_file ?access file)
+      close_file
+      (fun hdf_interface -> f hdf_interface)
 
   (** The basic type which encapsulates the HDF data types we can
       support.  These are encapsulated in a variant type to avoid having
