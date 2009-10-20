@@ -1,8 +1,31 @@
 (** {5 HDF4} *)
 
-open Mylib.General
+open Batteries
+open Standard
+open Bigarray
 open ExtBigarray
-module Option = Batteries.Option
+
+(** Local support functions *)
+
+(** [try_finally it cleanup f] applies [f it] and calls [cleanup it], even if
+    [f it] throws an exception.  Any exception thrown by [f it] will be
+    propagated along after the call to [cleanup it]. *)
+let try_finally it cleanup f =
+  try
+    let result = f it in
+    cleanup it;
+    result
+  with x ->
+    cleanup it;
+    raise x
+
+(** [unless except f x] returns [Some (f x)] unless [f x] raises the exception
+    [except], in which case it returns [None]. *)
+let unless except f x =
+  try
+    Some (f x)
+  with
+  | e when e = except -> None
 
 (** {6 Low Level Functions} *)
 
@@ -1016,7 +1039,7 @@ struct
       Vdata in [interface].  The data in the returned list are in the same order
       as those in [interface]. *)
   let read_all interface =
-    Array.filter_map id (
+    Array.filter_map identity (
       vdata_read_map read_data_by_id_nocast interface
     )
 
