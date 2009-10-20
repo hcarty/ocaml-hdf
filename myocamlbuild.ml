@@ -1,26 +1,5 @@
-open Ocamlbuild_plugin;;
-open Command;;
-
-(* ocamlfind packages required for compilation *)
-let packages = "bigarray extbigarray pcre mylib";;
-
-(* Build an appropriate ocamlfind command line *)
-let ocamlfind cmd cc =
-  S (
-    [A "ocamlfind"; A cmd]
-    @ (match cc with None -> [N] | Some x -> [A "-cc"; A x])
-    @ [A "-package"; A packages]
-  );;
-
-(* Link packages in when needed. *)
-flag ["ocaml"; "link"; "program"] (A "-linkpkg");;
-
-(* The camlidl command to use (default: first one found in $PATH) *)
-let camlidl = S([A"camlidl"; A"-header"]);;
-
-(* Files included in the main idl descriptor *)
-let idl_includes =
-  ["hdf_h.inc"; "mfhdf_h.inc"; "hlimits_h.idl"; "hdf_extras.idl"];;
+open Ocamlbuild_plugin
+open Command
 
 (* A simple function to check if a string is empty/whitespace *)
 let is_all_whitespace s =
@@ -35,13 +14,30 @@ let get_env_elem s =
       true -> N
     | false -> A it
 
-let hdf_cflags = get_env_elem "HDF_CFLAGS"
-let hdf_libs = get_env_elem "HDF_LIBS"
-let hdf_libs_dirs = get_env_elem "HDF_LIBS_DIRS"
-let hdf_libs_libs = get_env_elem "HDF_LIBS_LIBS"
-
 let camlidl_lib = get_env_elem "CAMLIDL_LIB"
 let camlidl_lib_dir = get_env_elem "CAMLIDL_LIB_DIR"
+let other_cflags = get_env_elem "CFLAGS"
+
+(* ocamlfind packages required for compilation *)
+let packages = "bigarray extbigarray pcre mylib"
+
+(* Build an appropriate ocamlfind command line *)
+let ocamlfind cmd cc =
+  S (
+    [A "ocamlfind"; A cmd]
+    @ (match cc with None -> [N] | Some x -> [A "-cc"; A x])
+    @ [A "-package"; A packages]
+  )
+
+(* Link packages in when needed. *)
+let () = flag ["ocaml"; "link"; "program"] (A "-linkpkg")
+
+(* The camlidl command to use (default: first one found in $PATH) *)
+let camlidl = S([A"camlidl"; A"-header"])
+
+(* Files included in the main idl descriptor *)
+let idl_includes =
+  ["hdf_h.inc"; "mfhdf_h.inc"; "hlimits_h.idl"; "hdf_extras.idl"]
 ;;
 
 dispatch begin function
@@ -62,13 +58,13 @@ dispatch begin function
           Seq [cmd]
         end;
 
-      (* Include the HDF and camlidl compiler options for ocamlmklib *)
-      flag ["ocamlmklib"; "c"]
-        (S[hdf_libs_dirs; hdf_libs_libs; camlidl_lib_dir; camlidl_lib]);
-
       (* gcc needs to know where to find the needed #includes *)
       flag ["c"; "compile"]
-        (S[A"-ccopt"; hdf_cflags]);
+        (S[A"-ccopt"; other_cflags]);
+
+      (* Include the HDF and camlidl compiler options for ocamlmklib *)
+      flag ["ocamlmklib"; "c"]
+        (S[camlidl_lib_dir; camlidl_lib]);
 
       (* Custom tag for OCaml bytecode *)
       flag ["ocaml"; "link"; "byte"]
@@ -77,11 +73,10 @@ dispatch begin function
       (* Use the proper extras when compiling the OCaml library *)
       flag ["ocaml"; "link"; "library"; "byte"]
         (S[A"-dllib"; A "-lhdf_stubs"; A"-cclib"; A"-lhdf_stubs";
-           A"-cclib"; hdf_libs; A"-cclib"; camlidl_lib]);
+           A"-cclib"; camlidl_lib]);
 
       flag ["ocaml"; "link"; "library"; "native"]
-        (S[A"-cclib"; A"-lhdf_stubs"; A"-cclib"; hdf_libs;
-           A"-cclib"; camlidl_lib]);
+        (S[A"-cclib"; A"-lhdf_stubs"; A"-cclib"; camlidl_lib]);
 
       (* Make sure the C pieces and built... *)
       dep ["ocaml"; "compile"] ["libhdf_stubs.a"];

@@ -7,10 +7,7 @@ OCAMLFIND = ocamlfind
 
 export CAMLIDL_LIB_DIR = -L$(shell ocamlc -where)
 export CAMLIDL_LIB = -lcamlidl
-export HDF_CFLAGS = -I/usr/include/hdf4/include/
-export HDF_LIBS_DIRS = -L/usr/lib64/hdf/
-export HDF_LIBS_LIBS = -lmfhdf -ldf -lz -ljpeg
-export HDF_LIBS = $(HDF_LIBS_DIRS) $(HDF_LIBS_LIBS)
+export CFLAGS = -fPIC
 
 # Where ocamlbuild put the build files
 BUILD_DIR = _build/
