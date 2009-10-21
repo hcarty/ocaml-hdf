@@ -855,12 +855,6 @@ struct
           | Hdf4.Float64 x -> f x
       ) attrs
 
-    let unless except f x =
-      try
-        Some (f x)
-      with
-      | e when e = except -> None
-
     let read ?name ?index kind interface =
       let (sds_name, dims, data_type, num_attrs) = info ?name ?index interface in
       (* Make sure the data type matches.  Otherwise bomb out. *)
