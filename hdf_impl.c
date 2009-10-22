@@ -296,7 +296,7 @@ value ml_SDreadattr(value id, value idx, value buf) {
         SDreadattr( Int32_val(id), Int32_val(idx), Data_bigarray_val(buf) );
     if (status == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Error reading reading attribute, index: %d",
+        sprintf(exception_message, "Error reading attribute, index: %d",
                 Int32_val(idx));
         caml_failwith(exception_message);
     }
@@ -313,7 +313,7 @@ value ml_SDsetattr(value id, value name, value nt, value count, value data) {
                    Int32_val(count), Data_bigarray_val(data) );
     if (status == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "Error reading setting attribute, name: %s",
+        sprintf(exception_message, "Error setting attribute, name: %s",
                 String_val(name));
         caml_failwith(exception_message);
     }

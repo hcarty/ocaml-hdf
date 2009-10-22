@@ -416,7 +416,7 @@ struct
   let select ?name ?index interface =
     match name, index with
         None, None
-      | Some _, Some _ -> raise (Invalid_argument "Hdf.SD.get_id")
+      | Some _, Some _ -> raise (Invalid_argument "Hdf.SD.select")
       | Some n, None ->
           sd_select interface.sdid (sd_nametoindex interface.sdid n)
       | None, Some i -> sd_select interface.sdid i
@@ -456,7 +456,7 @@ struct
       )
 
   (** [read ?name ?index interface] -
-      Must provide ONE of [name] OR [index].  It return an object containing
+      Must provide ONE of [name] OR [index].  It returns an object containing
       the SDS contents and related metadata. *)
   let read ?name ?index interface =
     try_finally
