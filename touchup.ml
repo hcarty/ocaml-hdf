@@ -39,8 +39,10 @@ let returns_error_code =
     "Vinitialize";
     "Vstart";
 
+    "VSattrinfo";
     "VSdetach";
     "VSfdefine";
+    "VSfindex";
     "VSgetclass";
     "VSinquire";
     "VSsetclass";
