@@ -572,9 +572,9 @@ struct
         f
 
     type fill_value_t =
-      | IntFill of int
-      | FloatFill of float
-      | Int32Fill of int32
+      | Int_fill of int
+      | Float_fill of float
+      | Int32_fill of int32
 
     let read_fill ?name ?index interface =
       let f g = wrap_sds_call g ?name ?index interface in
@@ -582,16 +582,16 @@ struct
         | Hdf4.Int8 _
         | Hdf4.UInt8 _
         | Hdf4.Int16 _
-        | Hdf4.UInt16 _ -> IntFill (f sd_getfillvalue_int)
-        | Hdf4.Int32 _ -> Int32Fill (f sd_getfillvalue_int32)
+        | Hdf4.UInt16 _ -> Int_fill (f sd_getfillvalue_int)
+        | Hdf4.Int32 _ -> Int32_fill (f sd_getfillvalue_int32)
         | Hdf4.Float32 _
-        | Hdf4.Float64 _ -> FloatFill (f sd_getfillvalue_float)
+        | Hdf4.Float64 _ -> Float_fill (f sd_getfillvalue_float)
 
     let write_fill sds_id =
       function
-        | IntFill x -> sd_setfillvalue_int sds_id x
-        | Int32Fill x -> sd_setfillvalue_int32 sds_id x
-        | FloatFill x -> sd_setfillvalue_float sds_id x
+        | Int_fill x -> sd_setfillvalue_int sds_id x
+        | Int32_fill x -> sd_setfillvalue_int32 sds_id x
+        | Float_fill x -> sd_setfillvalue_float sds_id x
 
     type sds_t = {
       (* The SDS entry name *)
