@@ -58,6 +58,14 @@ external sd_readattr: int32 -> int32 ->
 external sd_setattr: int32 -> string -> int32 -> int32 ->
   ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDsetattr"
 
+(** Vdata attribute reading/writing *)
+external vs_getattr: int32 -> int -> int32 ->
+  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
+  unit = "ml_VSgetattr"
+external vs_setattr: int32 -> int32 -> string -> int32 -> int32 ->
+  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
+  unit = "ml_VSsetattr_bytecode" "ml_VSsetattr"
+
 (** SDS fill value reading/writing *)
 external sd_getfillvalue_float: int32 -> float = "ml_SDgetfillvalue_float"
 external sd_getfillvalue_int: int32 -> int = "ml_SDgetfillvalue_int"

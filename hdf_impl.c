@@ -288,6 +288,9 @@ value ml_VSwrite(value vdata_id, value databuf, value n_records) {
 //
 //
 
+//
+// SDS
+//
 value ml_SDreadattr(value id, value idx, value buf) {
     CAMLparam3(id, idx, buf);
 
@@ -319,6 +322,49 @@ value ml_SDsetattr(value id, value name, value nt, value count, value data) {
     }
 
     CAMLreturn( Val_unit );
+}
+
+//
+// Vdata
+//
+value ml_VSgetattr(value vdata_id, value field_index, value attr_index, value values) {
+    CAMLparam4(vdata_id, field_index, attr_index, values);
+
+    int status;
+    status =
+        VSgetattr( Int32_val(vdata_id), Int_val(field_index),
+                   Int32_val(attr_index), Data_bigarray_val(values) );
+    if (status == FAIL) {
+        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+        sprintf(exception_message, "Error reading attribute, index: %d",
+                Int32_val(attr_index));
+        caml_failwith(exception_message);
+    }
+
+    CAMLreturn( Val_unit );
+}
+
+value ml_VSsetattr(value vdata_id, value field_index, value attr_name, value data_type, value count, value values) {
+    CAMLparam5(vdata_id, field_index, attr_name, data_type, count);
+    CAMLxparam1(values);
+
+    int status;
+    status =
+        VSsetattr( Int32_val(vdata_id), Int32_val(field_index),
+                   String_val(attr_name), Int32_val(data_type),
+                   Int32_val(count), Data_bigarray_val(values) );
+    if (status == FAIL) {
+        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+        sprintf(exception_message, "Error setting attribute, name: %s",
+                String_val(attr_name));
+        caml_failwith(exception_message);
+    }
+
+    CAMLreturn( Val_unit );
+}
+
+value ml_VSsetattr_bytecode(value *argv, int argn) {
+    return ml_VSsetattr(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
 }
 
 //
