@@ -28,6 +28,11 @@ let manual_function_attributes =
       function_attrs = None;
       parameter_attrs = Some ["c_info", ["in"; "ref"]];
     };
+    {
+      function_name = "VSfindex";
+      function_attrs = None;
+      parameter_attrs = Some ["field_index", ["out"]];
+    }
   ]
 
 (* Functions which simply return a 1 or 0 for success vs failure. *)
@@ -253,7 +258,7 @@ let parameter_attributes function_name types names =
        )
     |> List.iter (fun (_,_,_,_,attrs) -> Hashtbl.add attr_hash param_name attrs)
   in
-         
+
   List.iter2 perform_check types names;
   attr_hash
 
