@@ -1,6 +1,21 @@
 open Ocamlbuild_plugin
 open Command
 
+let run_and_read      = Ocamlbuild_pack.My_unix.run_and_read
+
+let blank_sep_strings = Ocamlbuild_pack.Lexers.blank_sep_strings
+
+let hdf4_linkflags cclib =
+  let tag = if cclib then A "-cclib" else N in
+  let all_elements =
+    blank_sep_strings &
+      Lexing.from_string &
+      run_and_read "h4cc -show"
+  in
+  let is_linker_flag s = s.[0] = '-' && (s.[1] = 'l' || s.[1] = 'L') in
+  let flags = List.filter is_linker_flag all_elements in
+  S (List.map (fun flag -> S [tag; A flag]) flags)
+
 (* A simple function to check if a string is empty/whitespace *)
 let is_all_whitespace s =
   try
@@ -64,7 +79,7 @@ dispatch begin function
 
       (* Include the HDF and camlidl compiler options for ocamlmklib *)
       flag ["ocamlmklib"; "c"]
-        (S[camlidl_lib_dir; camlidl_lib]);
+        (S[camlidl_lib_dir; camlidl_lib; hdf4_linkflags false]);
 
       (* Custom tag for OCaml bytecode *)
       flag ["ocaml"; "link"; "byte"]
@@ -73,10 +88,11 @@ dispatch begin function
       (* Use the proper extras when compiling the OCaml library *)
       flag ["ocaml"; "link"; "library"; "byte"]
         (S[A"-dllib"; A "-lhdf_stubs"; A"-cclib"; A"-lhdf_stubs";
-           A"-cclib"; camlidl_lib]);
+           A"-cclib"; camlidl_lib; hdf4_linkflags true]);
 
       flag ["ocaml"; "link"; "library"; "native"]
-        (S[A"-cclib"; A"-lhdf_stubs"; A"-cclib"; camlidl_lib]);
+        (S[A"-cclib"; A"-lhdf_stubs"; A"-cclib"; camlidl_lib;
+           hdf4_linkflags true]);
 
       (* Make sure the C pieces and built... *)
       dep ["ocaml"; "compile"] ["libhdf_stubs.a"];
