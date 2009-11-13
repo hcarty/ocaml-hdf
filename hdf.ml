@@ -232,6 +232,17 @@ struct
     | Float32 _ -> `float32
     | Float64 _ -> `float64
 
+  (** Get a variant type tag from a HDF type *)
+  let ( _data_type_from_hdf_type : hdf_data_type -> data_t ) = function
+      DFNT_INT8 -> `int8
+    | DFNT_UINT8 -> `uint8
+    | DFNT_INT16 -> `int16
+    | DFNT_UINT16 -> `uint16
+    | DFNT_INT32 -> `int32
+    | DFNT_FLOAT32 -> `float32
+    | DFNT_FLOAT64 -> `float64
+    | _ -> raise (Invalid_argument "Unhandled HDF data type")
+
   (** Get a HDF type from a Hdf.t *)
   let _hdf_type_from_t = function
       Int8 _ -> DFNT_INT8
@@ -245,6 +256,19 @@ struct
   (** [dims data] returns an array holding the dimensions of [data]. *)
   let dims data =
     let f x = Genarray.dims x in
+    match data with
+        Int8 x -> f x
+      | UInt8 x -> f x
+      | Int16 x -> f x
+      | UInt16 x -> f x
+      | Int32 x -> f x
+      | Float32 x -> f x
+      | Float64 x -> f x
+
+  (** [size_of_element data] returns the size in bytes of a single element
+      from [data]. *)
+  let size_of_element data =
+    let f x = Genarray.size_of_element x in
     match data with
         Int8 x -> f x
       | UInt8 x -> f x
