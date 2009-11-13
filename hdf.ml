@@ -140,7 +140,11 @@ struct
         | i -> f i
     in
     if_open sd_end interface.sdid;
-    if_open (fun i -> v_end i; h_close i) interface.fid;
+    if_open (
+      fun i ->
+        v_end i;
+        h_close i;
+    ) interface.fid;
     ()
 
   (** [open_file_in ?access f file] opens the HDF4 file [file] and passes the
