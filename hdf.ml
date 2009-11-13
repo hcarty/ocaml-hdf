@@ -34,6 +34,10 @@ let unless except f x =
   with
   | e when e = except -> None
 
+(** [a |? b] returns [b] if [a = None], otherwise it returns the contents of
+    [a]. *)
+let ( |? ) a b = Option.default b a
+
 (** {6 Low Level Functions} *)
 
 include Hdf_wrapper
@@ -45,11 +49,15 @@ let v_start = v_initialize
 let v_end = v_finish
 let he_clear = hep_clear
 
+type hdf_vdata_interlace_t =
+  | HDF_NO_INTERLACE
+  | HDF_FULL_INTERLACE
+
 (** Low-level functions wrapped by hand to read and write data. *)
 external vs_write: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
-  int32 -> unit = "ml_VSwrite"
+  int32 -> hdf_vdata_interlace_t -> unit = "ml_VSwrite"
 external vs_read: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
-  int32 -> unit = "ml_VSread"
+  int32 -> hdf_vdata_interlace_t -> unit = "ml_VSread"
 
 (** [sd_writedata sdsid data] *)
 external sd_writedata: int32 ->
@@ -450,6 +458,24 @@ struct
       | _ -> raise (BadDataType ("fold_float", ""))
 end
 
+type hdf_vdata_pack_action_t =
+  | HDF_VSPACK
+  | HDF_VSUNPACK
+
+(** Pack and unpack Vdata fields.  This goes after the {!Hdf4} module because it
+    relies on its definitions. *)
+external vs_fpack : int32 -> hdf_vdata_pack_action_t -> string ->
+  (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t ->
+  int -> int -> string -> Hdf4.t array -> unit
+  = "ml_VSfpack_bytecode" "ml_VSfpack"
+
+module Attribute = struct
+  type t = {
+    name : string;
+    data : Hdf4.t;
+  }
+end
+
 module SD =
 struct
   open Hdf4
@@ -601,13 +627,6 @@ struct
     data_type
 
   module Generic = struct
-    module Attribute = struct
-      type t = {
-        name : string;
-        data : Hdf4.t;
-      }
-    end
-
     let wrap_sds_call f ?name ?index interface =
       try_finally
         (select ?name ?index interface)
@@ -642,7 +661,7 @@ struct
       (* The actual SDS contents *)
       data : Hdf4.t;
       (* Attributes associated with this SDS *)
-      attrs : Attribute.t array;
+      attributes : Attribute.t array;
       (* Fill value for missing or unset values *)
       fill : fill_value_t option;
       (* What kind of data are these? *)
@@ -681,14 +700,14 @@ struct
           }
       )
 
-    let write_attributes attrs sds_id =
+    let write_attributes sds_id attrs =
       Array.iter (
         fun attr ->
           let f x =
             sd_setattr sds_id attr.Attribute.name
               (Hdf4.mlvariant_to_hdf_datatype
                 (Hdf4._data_type_from_t attr.Attribute.data))
-              (Int32.of_int (Hdf4.dims attr.Attribute.data).(0))
+              (Int32.of_int (Hdf4.elems attr.Attribute.data))
               x
           in
           match attr.Attribute.data with
@@ -712,7 +731,7 @@ struct
       {
         name = sds#name;
         data = sds#data;
-        attrs = attrs;
+        attributes = attrs;
         fill = fill;
         data_type = sds#data_type;
       }
@@ -725,7 +744,7 @@ struct
         (Int32.to_int num_sds)
         (fun i -> read ~index:(Int32.of_int i) interface)
 
-    let create data interface =
+    let create interface data =
       match
         sd_create interface.Hdf4.sdid data.name
           (Hdf4.mlvariant_to_hdf_datatype data.data_type)
@@ -736,15 +755,15 @@ struct
           raise (Hdf4.HdfError error_str)
       | sds_id -> sds_id
 
-    let write data interface =
+    let write interface data =
       try_finally
-        (create data interface)
+        (create interface data)
         sd_endaccess
         (
           fun sds_id ->
             (* Write the data, attributes and fill value (if there is one). *)
             write_data sds_id data.data;
-            write_attributes data.attrs sds_id;
+            write_attributes sds_id data.attributes;
             Option.may (write_fill sds_id) data.fill;
         )
   end
@@ -821,13 +840,6 @@ struct
       data_type = `int32;
     }
 
-    module Attribute = struct
-      type t = {
-        name : string;
-        data : Hdf4.t;
-      }
-    end
-
     let wrap_sds_call f ?name ?index interface =
       try_finally
         (select ?name ?index interface)
@@ -840,7 +852,7 @@ struct
       (* The actual SDS contents *)
       data : ('a, 'b, c_layout) Genarray.t;
       (* Attributes associated with this SDS *)
-      attrs : Attribute.t array;
+      attributes : Attribute.t array;
       (* Fill value for missing or unset values *)
       fill : 'a option;
       (* What kind of data are these? *)
@@ -885,7 +897,7 @@ struct
             sd_setattr sds_id attr.Attribute.name
               (Hdf4.mlvariant_to_hdf_datatype
                 (Hdf4._data_type_from_t attr.Attribute.data))
-              (Int32.of_int (Hdf4.dims attr.Attribute.data).(0))
+              (Int32.of_int (Hdf4.elems attr.Attribute.data))
               x
           in
           match attr.Attribute.data with
@@ -907,7 +919,7 @@ struct
         {
           name = sds_name;
           data = kind.read_data ?name ?index interface;
-          attrs = wrap_sds_call read_attributes ?name ?index interface;
+          attributes = wrap_sds_call read_attributes ?name ?index interface;
           fill =
             unless (Failure "Error getting SDS fill value.")
               (fun f -> wrap_sds_call f ?name ?index interface)
@@ -934,7 +946,7 @@ struct
           fun sds_id ->
             (* Write the data, attributes and fill value (if there is one). *)
             data.kind.write_data data.data sds_id;
-            write_attributes data.attrs sds_id;
+            write_attributes data.attributes sds_id;
             Option.may (data.kind.write_fill sds_id) data.fill;
         )
   end
@@ -944,9 +956,186 @@ module Vdata =
 struct
   open Hdf4
 
-  (** Allocate space to hold Vdata *)
-  let allocate_vdata_bigarray bytes =
-    Genarray.create int8_unsigned c_layout [|bytes|]
+  module Field = struct
+    type t = {
+      name : string;
+      order : int;
+      data : Hdf4.t;
+      attributes : Attribute.t array;
+    }
+  end
+
+  type t = {
+    name : string;
+    fields : Field.t array;
+    attributes : Attribute.t array;
+    vdata_class : string;
+  }
+
+  (** All functions in this module will raise
+      [Invalid_argument "Vdata is an attribute"] if one attempts to read a Vdata
+      marked as being an attribute without using the proper attribute reading
+      and writing functions. *)
+  let check_attribute vdata_id =
+    if vs_isattr vdata_id = 1 then
+      raise (Invalid_argument "Vdata is an attribute")
+    else
+      ()
+
+  (** [read_attributes ?field vdata_id] reads attribute(s) associated with a
+      particular Vdata or Vdata field.  If [field] is provide (and not None)
+      then attributes for that field will be returned.  Otherwise, attributes
+      for the Vdata are returned. *)
+  let read_attributes ?field vdata_id =
+    (* If no field is provided, get the number of attributes for the vdata
+       itself. *)
+    let field = field |? -1l in
+    let num_attrs = vs_fnattrs vdata_id field in
+    Array.init num_attrs (
+      fun i ->
+        let (name, data_type, num_values, data_size) =
+          vs_attrinfo vdata_id field i
+        in
+        let data =
+          Hdf4.create (Hdf4.hdf_datatype_to_mlvariant data_type)
+            [|Int32.to_int num_values|]
+        in
+        let f x =
+          vs_getattr vdata_id (Int32.to_int field) (Int32.of_int i) x
+        in
+        {
+          Attribute.name = name;
+          data =
+            let () =
+              (* This actually loads the data *)
+              match data with
+              | Hdf4.Int8 x -> f x
+              | Hdf4.UInt8 x -> f x
+              | Hdf4.Int16 x -> f x
+              | Hdf4.UInt16 x -> f x
+              | Hdf4.Int32 x -> f x
+              | Hdf4.Float32 x -> f x
+              | Hdf4.Float64 x -> f x
+            in
+            data
+        }
+    )
+
+  (** [write_attributes ?field vdata_id attrs] adds the data in [attrs] as
+      atributes for the Vdata entry associated with [vdata_id]. *)
+  let write_attributes ?field vdata_id attrs =
+    let field = Int32.of_int (field |? -1) in
+    Array.iter (
+      fun attr ->
+        let f x =
+          vs_setattr vdata_id field attr.Attribute.name
+            (Hdf4.mlvariant_to_hdf_datatype
+              (Hdf4._data_type_from_t attr.Attribute.data))
+            (Int32.of_int (Hdf4.elems attr.Attribute.data))
+            x
+        in
+        match attr.Attribute.data with
+        | Hdf4.Int8 x -> f x
+        | Hdf4.UInt8 x -> f x
+        | Hdf4.Int16 x -> f x
+        | Hdf4.UInt16 x -> f x
+        | Hdf4.Int32 x -> f x
+        | Hdf4.Float32 x -> f x
+        | Hdf4.Float64 x -> f x
+    ) attrs
+
+  (** Tests to see if the given Vdata or Vgroup class or name is a reserved
+      name. *)
+  external is_reserved_name : string -> bool = "ml_is_reserved_name"
+
+  let is_special vdata_id =
+    let vdata_name = vs_getname vdata_id in
+    let vdata_class = vs_getclass vdata_id in
+    vdata_class <> "" && (
+      is_reserved_name vdata_class ||
+      is_reserved_name vdata_name
+    )
+
+  (** [make_field ?init vdata_id name] allocates a {!Field.t} appropriate
+      for the field named [name] from [vdata_id].  Attributes are read, but not
+      the Vdata itself unless [init] is [true]. *)
+  let make_field ?(init = false) vdata_id name =
+    let index = vs_findex vdata_id name in
+    let attributes = read_attributes ~field:index vdata_id in
+    let n_elements = vs_elts vdata_id in
+    let order = Int32.to_int (vf_fieldorder vdata_id index) in
+    let data =
+      Hdf4.create
+        (Hdf4._data_type_from_hdf_type (vf_fieldtype vdata_id index))
+        [|Int32.to_int n_elements * order|]
+    in
+    if init then (
+      vs_setfields vdata_id name;
+      let f x = vs_read vdata_id x n_elements HDF_FULL_INTERLACE in
+      match data with
+      | Int8 x -> f x
+      | UInt8 x -> f x
+      | Int16 x -> f x
+      | UInt16 x -> f x
+      | Int32 x -> f x
+      | Float32 x -> f x
+      | Float64 x -> f x
+    );
+    {
+      Field.name = name;
+      order = order;
+      data = data;
+      attributes = attributes;
+    }
+
+  (** [read_fields vdata_id] will return all of the fields associated with the
+      given [vdata_id]. *)
+  let read_fields vdata_id =
+    (* Make sure we're not trying to read an attribute. *)
+    check_attribute vdata_id;
+    let _, field_names = vs_getfields vdata_id in
+    (* Allocate and read everything but the data for the fields *)
+    let fields =
+      let names =
+        Pcre.asplit ~pat:"," field_names
+      in
+      Array.map (make_field vdata_id) names
+    in
+    (* Extract just the field data *)
+    let field_data = Array.map (fun f -> f.Field.data) fields in
+    (* Total size, in bytes, of the Vdata fields *)
+    let n_records = vs_elts vdata_id in
+    let total_bytes =
+      Int32.to_int (
+        Int32.mul
+          (vs_sizeof vdata_id field_names)
+          n_records
+      )
+    in
+
+    (* The data will be read in to this buffer, then "unpacked" in to the
+       field arrays. *)
+    let data_buffer = Genarray.create int8_unsigned c_layout [|total_bytes|] in
+    vs_read vdata_id data_buffer n_records HDF_FULL_INTERLACE;
+    vs_fpack vdata_id HDF_VSUNPACK
+      field_names data_buffer total_bytes (Int32.to_int n_records)
+      field_names field_data;
+    fields
+
+  let read_by_id vdata_id =
+    (* This check is needed to make sure that we are not attempting to read some
+       sort of HDF metadata. *)
+    if is_special vdata_id then (
+      None
+    )
+    else (
+      Some {
+        name = vs_getname vdata_id;
+        fields = read_fields vdata_id;
+        attributes = read_attributes vdata_id;
+        vdata_class = vs_getclass vdata_id;
+      }
+    )
 
   (** [ref_from_index interface index] gets the Vdata ref associated with the
       [index]'th Vdata entry. *)
@@ -964,173 +1153,121 @@ struct
     else
       vdata_ref
 
-  (** [index_from_ref interface target_ref] gets the Vdata entry index
-      associated with the Vdata ref [target_ref]. *)
-  let index_from_ref interface target_ref =
-    let rec f i vdata_ref =
-      let new_ref = vs_getid interface.fid vdata_ref in
-      let () =
-        if vdata_ref = -1l then
-          raise (Invalid_argument "Hdf.Vdata.index_from_ref")
-        else
-          ()
-      in
-      if new_ref = target_ref then
-        i
-      else
-        f (i + 1) new_ref
-    in
-    f 0 (-1l)
-
-  (** [read_data_by_id vdata_id] returns the given Vdata, along with specs. *)
-  let read_data_by_id ~cast vdata_id =
-    let vdata_class = vs_getclass vdata_id in
-    (* XXX TODO FIXME: "SDSVar" should really be a constant taken from the C HDF
-       headers directly, rather than hard-coded in the bindings here.*)
-    if vdata_class = "SDSVar" then (
-      None
-    )
-    else (
-      let (n_records, interlace, fields, vdata_size, vdata_name) =
-        vs_inquire vdata_id
-      in
-      let num_attrs = vs_fnattrs vdata_id (-1l) in
-      let num_fields = Int32.to_int (vf_nfields vdata_id) in
-      let field_orders =
-        Array.init num_fields (fun i -> vf_fieldorder vdata_id (Int32.of_int i))
-      in
-      let field_types =
-        Array.init num_fields (fun i -> vf_fieldtype vdata_id (Int32.of_int i))
-      in
-      let field_sizes =
-        Array.init num_fields (fun i -> vf_fieldisize vdata_id (Int32.of_int i))
-      in
-      let field_num_attrs =
-        Array.init num_fields (fun i -> vs_fnattrs vdata_id (Int32.of_int i))
-      in
-      (* Create a Bigarray to hold the data, and suck it all up.
-         The total size in bytes of the Vdata is vdata_size * n_records. *)
-      let data =
-        allocate_vdata_bigarray
-          (Int32.to_int vdata_size * Int32.to_int n_records)
-      in
-      vs_setfields vdata_id fields;
-      vs_read vdata_id data n_records;
-      Some (
-        object
-          method n_records = n_records
-          method interlace = interlace
-          method fields = fields
-          method size = vdata_size
-          method name = vdata_name
-          method vdata_class = vdata_class
-          method num_attrs = num_attrs
-          method num_fields = num_fields
-          method field_orders = field_orders
-          method field_types = field_types
-          method field_sizes = field_sizes
-          method field_num_attrs = field_num_attrs
-          method data = Genarray.cast cast data
-        end
-      )
-    )
-
-  (** [read_data_by_id_nocast] *)
-  let read_data_by_id_nocast interface =
-    read_data_by_id ~cast:int8_unsigned interface
-
-  (** [read_data ~name ~cast interface] *)
-  let read_data ~name ~cast interface =
+  (** [read ?name ?index interface] reads the Vdata identified by [name] or by
+      [index]. *)
+  let read ?name ?index interface =
     let vdata_id =
-      let vdata_ref = vs_find interface.fid name in
+      let vdata_ref =
+        match name, index with
+        | None, None
+        | Some _, Some _ ->
+            raise (Invalid_argument "Vdata.read needs a name OR an index")
+        | Some n, None -> vs_find interface.fid n
+        | None, Some i -> ref_from_index interface i
+      in
       vs_attach interface.fid vdata_ref "r"
     in
-    let vdata = read_data_by_id ~cast vdata_id in
+    let vdata = read_by_id vdata_id in
+    (* Detach when we are done reading. *)
     vs_detach vdata_id;
     match vdata with
     | None -> raise (Invalid_argument "Vdata.read_data")
     | Some vd -> vd
 
-  (** [read_data_nocast] *)
-  let read_data_nocast ~name interface =
-    read_data ~name ~cast:int8_unsigned interface
-
-  (** [vdata_read_map f interface] will go through each Vdata in [interface],
-      applying [f] and returning a list of the results.  This is mainly meant
-      to be used in the [read_vdata_t_list] function below but may have other
+  (** [map f interface] will go through each Vdata in [interface],
+      applying [f] and returning an array of the results.  This is mainly meant
+      to be used in the [read_all] function below but may have other
       uses. *)
-  let vdata_read_map f interface =
-    let vdata_ref_0 = vs_getid interface.fid (-1l) in
-    let rec loop l vdata_ref =
-      let vdata_id = vs_attach interface.fid vdata_ref "r" in
-      if vdata_id = -1l then
-        List.rev l
-      else
-        let result = f vdata_id in
-        let () = vs_detach vdata_id in
-        loop (result :: l) (vs_getid interface.fid vdata_ref)
+  let map f interface =
+    let rec loop accu vdata_ref =
+      match vs_attach interface.fid vdata_ref "r" with
+      | -1l -> List.rev accu
+      | vdata_id ->
+          let result = f vdata_id in
+          vs_detach vdata_id;
+          loop (result :: accu) (vs_getid interface.fid vdata_ref)
     in
-    Array.of_list (loop [] vdata_ref_0)
+    Array.of_list (loop [] (vs_getid interface.fid (-1l)))
 
-  (** [read_all interface] will return a list of Vdata objects, one for each
-      Vdata in [interface].  The data in the returned list are in the same order
-      as those in [interface]. *)
+  (** [read_all interface] will return an array of Vdata, one for each
+      Vdata in [interface].  The data in the returned array are in the same
+      order as those in [interface]. *)
   let read_all interface =
-    Array.filter_map identity (
-      vdata_read_map read_data_by_id_nocast interface
-    )
+    Array.filter_map identity (map read_by_id interface)
 
-  (** [write_vdata interface data] will write out the Vdata+specs given in
-      [data]. The combination of [read_vdata_t] and [write_vdata_t] should
-      preserve the original Vdata structure in the new file. *)
-  let write_data interface data =
-    let vdata_id = vs_attach interface.fid (-1l) "w" in
-    let field_name_array = Array.of_list (Pcre.split ~pat:"," data#fields) in
-    let field_defs =
-      Array.init (Array.length data#field_types)
-        (fun i ->
-           ( data#field_types.(i), field_name_array.(i),
-             data#field_orders.(i) ))
+  (** For internal use.  This packs multiple fields in to one lump of bytes,
+      ready for ingestion by vs_write. *)
+  let pack_fields vdata_id fields =
+    (* Extract just the field data *)
+    let field_data = Array.map (fun f -> f.Field.data) fields in
+    (* Total size, in bytes, of the Vdata fields *)
+    let total_bytes =
+      let byte_sizes =
+        Array.map (
+          fun field ->
+            Hdf4.elems field.Field.data *
+            Hdf4.size_of_element field.Field.data
+            (* No need to multiply by the order or n_records as that information
+               is carried in the number of elements in the data. *)
+        ) fields
+      in
+      Array.reduce ( + ) byte_sizes
     in
-    Array.iter
-      (fun (ftype, fname, forder) -> vs_fdefine vdata_id fname ftype forder)
-      field_defs;
-    vs_setname vdata_id data#name;
-    vs_setclass vdata_id data#vdata_class;
-    vs_setfields vdata_id data#fields;
-    vs_write vdata_id data#data data#n_records;
+
+    let field_names =
+      let names = Array.map (fun f -> f.Field.name) fields in
+      String.concat "," (Array.to_list names)
+    in
+
+    let n_records = Hdf4.elems fields.(0).Field.data in
+
+    (* Pack all of the data in to a single, HDF-ready buffer *)
+    let data_buffer = Genarray.create int8_unsigned c_layout [|total_bytes|] in
+    vs_fpack vdata_id HDF_VSPACK
+      field_names data_buffer total_bytes n_records
+      field_names field_data;
+    data_buffer
+
+  (** [write interface data] will write out the Vdata given in [data] to a new
+      Vdata entry in [interface]. *)
+  let write interface data =
+    let vdata_id = vs_attach interface.fid (-1l) "w" in
+    (* Make a Vdata-ready, comma-delimited string of the field names *)
+    let field_names =
+      let names =
+        Array.to_list (Array.map (fun x -> x.Field.name) data.fields)
+      in
+      String.concat "," names
+    in
+
+    (* Define each field in the Vdata *)
+    Array.iteri (
+      fun i field ->
+        let field_type = Hdf4._hdf_type_from_t field.Field.data in
+        (* Define the field *)
+        vs_fdefine vdata_id
+          field.Field.name field_type (Int32.of_int field.Field.order);
+        (* Write out the attributes for this field *)
+        write_attributes ~field:i vdata_id field.Field.attributes;
+    ) data.fields;
+
+    (* Set some metadata *)
+    vs_setname vdata_id data.name;
+    vs_setclass vdata_id data.vdata_class;
+    vs_setfields vdata_id field_names;
+
+    (* Write the main Vdata *)
+    let n_elements = Hdf4.elems data.fields.(0).Field.data in
+    let packed_fields = pack_fields vdata_id data.fields in
+    vs_write vdata_id packed_fields (Int32.of_int n_elements)
+      HDF_FULL_INTERLACE;
+
+    (* Write the Vdata attributes *)
+    write_attributes vdata_id data.attributes;
+
+    (* All done *)
     vs_detach vdata_id;
     ()
-
-  (*
-  (** [write_vdata_list interface vdata_list] will write out each element of
-      [vdata_list] to [interface] in order. *)
-  let rec write_data_list interface vdata_list =
-    match vdata_list with
-        hd :: tl ->
-          write_data interface hd;
-          write_data_list interface tl
-      | [] ->
-          ()
-
-  (** [get_spec_list file_id] returns a list of the information given by {!Hdf.get_vs_info}
-      for each Vdata available through the given [file_id] interface.
-  *)
-  let get_spec_list file_id =
-    let rec f i =
-      let x = Int32.of_int i in
-      try
-        let info = get_info file_id (DataID x) in
-        info :: f (i + 1)
-      with
-          Failure x ->
-            if i > 0 then
-              []
-            else
-              failwith x
-    in
-    f 0
-  *)
 end
 
 module Vgroup = struct

@@ -2,7 +2,6 @@
  * An OCaml wrapper for the HDF4 C library.
  * by Hezekiah M. Carty
  *
- * Based on example code in the OCaml 3.09.1 documentation.
  */
 
 /* The "usual" OCaml includes */
@@ -247,11 +246,12 @@ value ml_SDwritedata(value sds_id, value data) {
 //
 
 /* Read and write VS data sets */
-value ml_VSread(value vdata_id, value data, value n_records) {
-    CAMLparam3(vdata_id, data, n_records);
+value ml_VSread(value vdata_id, value data, value n_records,
+                value interlace_mode) {
+    CAMLparam4(vdata_id, data, n_records, interlace_mode);
 
     int32 status;
-    status = VSread(Int32_val(vdata_id), Data_bigarray_val(data), Int32_val(n_records), FULL_INTERLACE);
+    status = VSread(Int32_val(vdata_id), Data_bigarray_val(data), Int32_val(n_records), Int_val(interlace_mode));
     if (status != Int32_val(n_records)) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
         sprintf(exception_message, "VSread: Unable to read all of the requested Vdata records: %d of %d\n",
@@ -262,12 +262,12 @@ value ml_VSread(value vdata_id, value data, value n_records) {
     CAMLreturn( Val_unit );
 }
 
-// XXX Assumes a FULL_INTERLACE vdata buffer.
-value ml_VSwrite(value vdata_id, value databuf, value n_records) {
-    CAMLparam3(vdata_id, databuf, n_records);
+value ml_VSwrite(value vdata_id, value databuf, value n_records,
+                 value interlace_mode) {
+    CAMLparam4(vdata_id, databuf, n_records, interlace_mode);
 
     int records_written;
-    records_written = VSwrite( Int32_val(vdata_id), (uchar8*)Data_bigarray_val(databuf), Int32_val(n_records), FULL_INTERLACE);
+    records_written = VSwrite( Int32_val(vdata_id), (uchar8*)Data_bigarray_val(databuf), Int32_val(n_records), Int_val(interlace_mode));
     if (records_written == FAIL) {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
         sprintf(exception_message, "Error with VSwrite.");
@@ -280,6 +280,111 @@ value ml_VSwrite(value vdata_id, value databuf, value n_records) {
     }
 
     CAMLreturn( Val_unit );
+}
+
+// Pack multiple Vdata fields for reading or writing
+value ml_VSfpack(value vdata_id, value action, value fields_in_buf, value buf,
+                 value buf_size, value n_records, value field_name_list,
+                 value bufptrs) {
+    CAMLparam5(vdata_id, action, fields_in_buf, buf, buf_size);
+    CAMLxparam3(n_records, field_name_list, bufptrs);
+
+    int result;
+    int length, i;
+    length = Wosize_val(bufptrs);
+    VOIDP buffer_pointers[length];
+
+    // Get pointers to each of the fields' data arrays.  These are variants
+    // with arguments, so it takes a bit of digging to get to the actual
+    // bigarray data.
+    for (i = 0; i < length; i++) {
+        if (Is_block(Field(bufptrs, i))) {
+            buffer_pointers[i] = Data_bigarray_val(Field(Field(bufptrs, i), 0));
+        }
+        else {
+            // Just in case a data representation takes place at some point...
+            char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+            sprintf(exception_message, "Bad or unhandled data in VSfpack.");
+            caml_failwith(exception_message);
+        }
+    }
+
+    result = VSfpack(Int32_val(vdata_id), Int_val(action),
+                     String_val(fields_in_buf), Data_bigarray_val(buf),
+                     Int_val(buf_size), Int_val(n_records),
+                     String_val(field_name_list), buffer_pointers);
+
+    if (result == FAIL) {
+        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+        sprintf(exception_message, "Error in VSfpack.");
+        caml_failwith(exception_message);
+    }
+
+    CAMLreturn( Val_unit );
+}
+
+value ml_VSfpack_bytecode(value *argv, int argn) {
+    return ml_VSfpack(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
+                      argv[6], argv[7]);
+}
+
+/*-------------------------------------------------------------------------
+ * NOTE: This function was taken from the hrepack_vs.c file from the
+ * HDF4.2r4 distribution.  The license for THIS FUNCTION ONLY is available
+ * in the file COPYING.hdf4.
+ *
+ * Function: is_reserved
+ *
+ * Purpose: check for reserved Vgroup/Vdata class/names
+ *
+ * Return: 1 if reserved, 0 if not
+ *
+ * Programmer: Pedro Vicente, pvn@ncsa.uiuc.edu
+ *
+ * Date: August 22, 2003
+ *
+ * Hezekiah M. Carty
+ * - Added check for _HDF_SDSVAR for newer HDF4 releases
+ *
+ *-------------------------------------------------------------------------
+ */
+int is_reserved(char*vgroup_class)
+{
+    int ret=0;
+    
+    /* ignore reserved HDF groups/vdatas */
+    if(vgroup_class != NULL) {
+        if( (strcmp(vgroup_class,_HDF_ATTRIBUTE)==0) ||
+#ifdef _HDF_SDSVAR
+            (strcmp(vgroup_class,_HDF_SDSVAR)==0) ||
+#endif
+            (strcmp(vgroup_class,_HDF_VARIABLE) ==0) || 
+            (strcmp(vgroup_class,_HDF_DIMENSION)==0) ||
+            (strcmp(vgroup_class,_HDF_UDIMENSION)==0) ||
+            (strcmp(vgroup_class,DIM_VALS)==0) ||
+            (strcmp(vgroup_class,DIM_VALS01)==0) ||
+            (strcmp(vgroup_class,_HDF_CDF)==0) ||
+            (strcmp(vgroup_class,GR_NAME)==0) ||
+            (strcmp(vgroup_class,RI_NAME)==0) || 
+            (strcmp(vgroup_class,RIGATTRNAME)==0) ||
+            (strcmp(vgroup_class,RIGATTRCLASS)==0) ){
+            ret=1;
+        }
+        
+        /* class and name(partial) for chunk table i.e. Vdata */
+        if( (strncmp(vgroup_class,"_HDF_CHK_TBL_",13)==0)){
+            ret=1;
+        }
+        
+    }
+    
+    return ret;
+}
+
+value ml_is_reserved_name(value v_class) {
+    CAMLparam1(v_class);
+
+    CAMLreturn(Val_int(is_reserved(String_val(v_class))));
 }
 
 //
