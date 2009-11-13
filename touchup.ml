@@ -31,7 +31,7 @@ let manual_function_attributes =
     {
       function_name = "VSfindex";
       function_attrs = None;
-      parameter_attrs = Some ["field_index", ["out"]];
+      parameter_attrs = Some ["fldindex", ["out"]];
     }
   ]
 
@@ -49,6 +49,7 @@ let returns_error_code =
     "VSfdefine";
     "VSfindex";
     "VSgetclass";
+    "VSgetname";
     "VSinquire";
     "VSsetclass";
     "VSsetfields";
