@@ -7,17 +7,24 @@ open ExtBigarray
 
 (** Local support functions *)
 
+type 'a try_t =
+  | Result of 'a
+  | Error of exn
+
 (** [try_finally it cleanup f] applies [f it] and calls [cleanup it], even if
     [f it] throws an exception.  Any exception thrown by [f it] will be
     propagated along after the call to [cleanup it]. *)
 let try_finally it cleanup f =
-  try
-    let result = f it in
-    cleanup it;
-    result
-  with x ->
-    cleanup it;
-    raise x
+  let result =
+    try
+      Result (f it)
+    with
+    | except -> Error except
+  in
+  cleanup it;
+  match result with
+  | Result v -> v
+  | Error e -> raise e
 
 (** [unless except f x] returns [Some (f x)] unless [f x] raises the exception
     [except], in which case it returns [None]. *)
