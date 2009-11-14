@@ -28,6 +28,7 @@ mli:
 install:
 	$(OCAMLFIND) install $(LIBRARY) \
 	    META \
+	    $(BUILD_DIR)hdf.mli \
 	    $(BUILD_DIR)*hdf.cmi \
 	    $(BUILD_DIR)*hdf.cma \
 	    $(BUILD_DIR)*hdf.cmxa \
