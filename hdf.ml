@@ -655,7 +655,7 @@ struct
         | Int32_fill x -> sd_setfillvalue_int32 sds_id x
         | Float_fill x -> sd_setfillvalue_float sds_id x
 
-    type sds_t = {
+    type t = {
       (* The SDS entry name *)
       name : string;
       (* The actual SDS contents *)
@@ -667,8 +667,6 @@ struct
       (* What kind of data are these? *)
       data_type : Hdf4.data_t;
     }
-
-    type t = sds_t
 
     let read_attributes sds_id =
       let (sds_name, dims, data_type, num_attrs) = info_sds sds_id in
@@ -951,6 +949,9 @@ struct
         )
   end
 end
+
+(** A module alias to make access to the new SDS interface simpler *)
+module Sd = SD.Generic
 
 module Vdata =
 struct
