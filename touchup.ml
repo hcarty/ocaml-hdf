@@ -134,7 +134,7 @@ let make_attribute_string attributes =
 let minimize_whitespace s =
   s
     |> Pcre.replace ~pat:"^\\s+" ~templ:""
-    |> Pcre.replace ~pat:"\\s$" ~templ:""
+    |> Pcre.replace ~pat:"\\s+$" ~templ:""
     |> Pcre.replace ~pat:"\\s+" ~templ:" "
 
 let function_attributes return_type name =
