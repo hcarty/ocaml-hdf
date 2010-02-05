@@ -1,7 +1,6 @@
 (** {5 HDF4} *)
 
 open Batteries
-open Standard
 open Bigarray
 open ExtBigarray
 
