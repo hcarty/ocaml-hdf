@@ -53,31 +53,31 @@ type hdf_vdata_interlace_t =
   | HDF_FULL_INTERLACE
 
 (** Low-level functions wrapped by hand to read and write data. *)
-external vs_write: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
+external vs_write: int32 -> ('a, 'b, 'c) Bigarray.Genarray.t ->
   int32 -> hdf_vdata_interlace_t -> unit = "ml_VSwrite"
-external vs_read: int32 -> ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
+external vs_read: int32 -> ('a, 'b, 'c) Bigarray.Genarray.t ->
   int32 -> hdf_vdata_interlace_t -> unit = "ml_VSread"
 
 (** [sd_writedata sdsid data] *)
 external sd_writedata: int32 ->
-  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDwritedata"
+  ('a, 'b, 'c) Bigarray.Genarray.t -> unit = "ml_SDwritedata"
 
 (** [sd_readdata sdsid start end data] *)
 external sd_readdata: int32 -> int32 array -> int32 array ->
-  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDreaddata"
+  ('a, 'b, 'c) Bigarray.Genarray.t -> unit = "ml_SDreaddata"
 
 (** SDS and file-wide attribute reading/writing *)
 external sd_readattr: int32 -> int32 ->
-  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDreadattr"
+  ('a, 'b, 'c) Bigarray.Genarray.t -> unit = "ml_SDreadattr"
 external sd_setattr: int32 -> string -> int32 -> int32 ->
-  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t -> unit = "ml_SDsetattr"
+  ('a, 'b, 'c) Bigarray.Genarray.t -> unit = "ml_SDsetattr"
 
 (** Vdata attribute reading/writing *)
 external vs_getattr: int32 -> int -> int32 ->
-  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
+  ('a, 'b, 'c) Bigarray.Genarray.t ->
   unit = "ml_VSgetattr"
 external vs_setattr: int32 -> int32 -> string -> int32 -> int32 ->
-  ('a, 'b, Bigarray.c_layout) Bigarray.Genarray.t ->
+  ('a, 'b, 'c) Bigarray.Genarray.t ->
   unit = "ml_VSsetattr_bytecode" "ml_VSsetattr"
 
 (** SDS fill value reading/writing *)
@@ -167,18 +167,18 @@ struct
       support.  These are encapsulated in a variant type to avoid having
       to write explicit cases for every data type within a given HDF4
       file. *)
-  type t =
-      Int8 of (int, int8_signed_elt, c_layout) Genarray.t
-    | UInt8 of (int, int8_unsigned_elt, c_layout) Genarray.t
-    | Int16 of (int, int16_signed_elt, c_layout) Genarray.t
-    | UInt16 of (int, int16_unsigned_elt, c_layout) Genarray.t
-    | Int32 of (int32, int32_elt, c_layout) Genarray.t
-    | Float32 of (float, float32_elt, c_layout) Genarray.t
-    | Float64 of (float, float64_elt, c_layout) Genarray.t
+  type 'a t =
+      Int8 of (int, int8_signed_elt, 'a) Genarray.t
+    | UInt8 of (int, int8_unsigned_elt, 'a) Genarray.t
+    | Int16 of (int, int16_signed_elt, 'a) Genarray.t
+    | UInt16 of (int, int16_unsigned_elt, 'a) Genarray.t
+    | Int32 of (int32, int32_elt, 'a) Genarray.t
+    | Float32 of (float, float32_elt, 'a) Genarray.t
+    | Float64 of (float, float64_elt, 'a) Genarray.t
 
   (** Create a bigarray of the appropriate type, wrapped as an [Hdf.t]. *)
-  let create (data_type : data_t) dimensions =
-    let f x = Genarray.create x c_layout dimensions in
+  let create ?layout (data_type : data_t) dimensions =
+    let f x = Genarray.create x (layout |? c_layout) dimensions in
     match data_type with
         `int8 -> Int8 (f int8_signed)
       | `uint8 -> UInt8 (f int8_unsigned)
@@ -230,7 +230,7 @@ struct
     | `float64 -> 8
 
   (** Get a variant type tag from a Hdf.t *)
-  let ( _data_type_from_t : t -> data_t ) = function
+  let ( _data_type_from_t : 'a t -> data_t ) = function
       Int8 _ -> `int8
     | UInt8 _ -> `uint8
     | Int16 _ -> `int16
@@ -464,14 +464,14 @@ type hdf_vdata_pack_action_t =
 (** Pack and unpack Vdata fields.  This goes after the {!Hdf4} module because it
     relies on its definitions. *)
 external vs_fpack : int32 -> hdf_vdata_pack_action_t -> string ->
-  (int, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Genarray.t ->
-  int -> int -> string -> Hdf4.t array -> unit
+  (int, Bigarray.int8_unsigned_elt, 'a) Bigarray.Genarray.t ->
+  int -> int -> string -> 'a Hdf4.t array -> unit
   = "ml_VSfpack_bytecode" "ml_VSfpack"
 
 module Attribute = struct
-  type t = {
+  type 'a t = {
     name : string;
-    data : Hdf4.t;
+    data : 'a Hdf4.t;
   }
 end
 
@@ -507,14 +507,14 @@ struct
   (** [read_ga ?name ?index kind interface] -
       Must provide ONE of [name] OR [index].  It return a Bigarray containing
       the SDS contents. *)
-  let read_ga ?name ?index kind interface =
+  let read_ga ?name ?index ?(layout = c_layout) kind interface =
     try_finally
       (select ?name ?index interface)
       sd_endaccess
       (
         fun sds_id ->
           let (sds_name, dims, data_type, num_attrs) = info_sds sds_id in
-          let ba = Genarray.create kind c_layout dims in
+          let ba = Genarray.create kind layout dims in
           (* Always read the entire data set.  The "stride" option is set to
              NULL. *)
           let start = Array.make (Array.length dims) 0l in
@@ -654,13 +654,13 @@ struct
         | Int32_fill x -> sd_setfillvalue_int32 sds_id x
         | Float_fill x -> sd_setfillvalue_float sds_id x
 
-    type t = {
+    type 'a t = {
       (* The SDS entry name *)
       name : string;
       (* The actual SDS contents *)
-      data : Hdf4.t;
+      data : 'a Hdf4.t;
       (* Attributes associated with this SDS *)
-      attributes : Attribute.t array;
+      attributes : 'a Attribute.t array;
       (* Fill value for missing or unset values *)
       fill : fill_value_t option;
       (* What kind of data are these? *)
@@ -766,10 +766,10 @@ struct
   end
 
   module Strict = struct
-    type ('a, 'b) kind_t = {
+    type ('a, 'b, 'c) kind_t = {
       read_data : ?name:string -> ?index:int32 -> Hdf4.interface ->
-        ('a, 'b, c_layout) Genarray.t;
-      write_data : ('a, 'b, c_layout) Genarray.t -> int32 -> unit;
+        ('a, 'b, 'c) Genarray.t;
+      write_data : ('a, 'b, 'c) Genarray.t -> int32 -> unit;
       read_fill : int32 -> 'a;
       write_fill : int32 -> 'a -> unit;
       data_type : Hdf4.data_t;
@@ -843,17 +843,17 @@ struct
         sd_endaccess
         f
 
-    type ('a, 'b) data_t = {
+    type ('a, 'b, 'c) data_t = {
       (* The SDS entry name *)
       name : string;
       (* The actual SDS contents *)
-      data : ('a, 'b, c_layout) Genarray.t;
+      data : ('a, 'b, 'c) Genarray.t;
       (* Attributes associated with this SDS *)
-      attributes : Attribute.t array;
+      attributes : 'c Attribute.t array;
       (* Fill value for missing or unset values *)
       fill : 'a option;
       (* What kind of data are these? *)
-      kind : ('a, 'b) kind_t;
+      kind : ('a, 'b, 'c) kind_t;
     }
 
     let read_attributes sds_id =
@@ -957,18 +957,18 @@ struct
   open Hdf4
 
   module Field = struct
-    type t = {
+    type 'a t = {
       name : string;
       order : int;
-      data : Hdf4.t;
-      attributes : Attribute.t array;
+      data : 'a Hdf4.t;
+      attributes : 'a Attribute.t array;
     }
   end
 
-  type t = {
+  type 'a t = {
     name : string;
-    fields : Field.t array;
-    attributes : Attribute.t array;
+    fields : 'a Field.t array;
+    attributes : 'a Attribute.t array;
     vdata_class : string;
   }
 
@@ -1090,7 +1090,7 @@ struct
 
   (** [read_fields vdata_id] will return all of the fields associated with the
       given [vdata_id]. *)
-  let read_fields vdata_id =
+  let read_fields ?(layout = c_layout) vdata_id =
     (* Make sure we're not trying to read an attribute. *)
     check_attribute vdata_id;
     let _, field_names = vs_getfields vdata_id in
@@ -1115,7 +1115,7 @@ struct
 
     (* The data will be read in to this buffer, then "unpacked" in to the
        field arrays. *)
-    let data_buffer = Genarray.create int8_unsigned c_layout [|total_bytes|] in
+    let data_buffer = Genarray.create int8_unsigned layout [|total_bytes|] in
     vs_read vdata_id data_buffer n_records HDF_FULL_INTERLACE;
     vs_fpack vdata_id HDF_VSUNPACK
       field_names data_buffer total_bytes (Int32.to_int n_records)
@@ -1197,7 +1197,7 @@ struct
 
   (** For internal use.  This packs multiple fields in to one lump of bytes,
       ready for ingestion by vs_write. *)
-  let pack_fields vdata_id fields =
+  let pack_fields ?(layout = c_layout) vdata_id fields =
     (* Extract just the field data *)
     let field_data = Array.map (fun f -> f.Field.data) fields in
     (* Total size, in bytes, of the Vdata fields *)
@@ -1222,7 +1222,7 @@ struct
     let n_records = Hdf4.elems fields.(0).Field.data in
 
     (* Pack all of the data in to a single, HDF-ready buffer *)
-    let data_buffer = Genarray.create int8_unsigned c_layout [|total_bytes|] in
+    let data_buffer = Genarray.create int8_unsigned layout [|total_bytes|] in
     vs_fpack vdata_id HDF_VSPACK
       field_names data_buffer total_bytes n_records
       field_names field_data;
@@ -1279,9 +1279,9 @@ module Vgroup = struct
     SDS (Hdf4.create `int8 [|10|]);
   |]
   *)
-  type vgroup_t =
-    | Vgroup of vgroup_t array
-    | SDS of SD.Generic.t
+  type 'a vgroup_t =
+    | Vgroup of 'a vgroup_t array
+    | SDS of 'a SD.Generic.t
     (*| Vdata of Vdata.t*)
 
   (** TODO -- Just about everything.  Vgroup reading, writing and manipulating
