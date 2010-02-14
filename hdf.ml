@@ -197,7 +197,7 @@ struct
   let to_int16 = function
       Int16 x -> x | _ -> raise (BadDataType ("Hdf4.int16", ""))
   let to_uint16 = function
-      UInt8 x -> x | _ -> raise (BadDataType ("Hdf4.uint16", ""))
+      UInt16 x -> x | _ -> raise (BadDataType ("Hdf4.uint16", ""))
   let to_int32 = function
       Int32 x -> x | _ -> raise (BadDataType ("Hdf4.int32", ""))
   let to_float32 = function
