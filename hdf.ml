@@ -62,12 +62,11 @@ module Fortran_layout : HDF4_LAYOUT_TYPE = struct
   let slice = Genarray.slice_right
 end
 
-(** A complete set of HDF4 modules, parameterized by the underlying
-    Bigarray layout (C or Fortran). *)
-module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
-
-  (** {6 Low Level Functions} *)
-
+(** {6 Low Level Functions}
+    This module includes relatively "bare metal" functions from the HDF4 API.
+    Note that these are largely unsafe!  If they are not used with care they
+    can result in segmentation faults or other unexpected outcomes. *)
+module Hdf4_low_level = struct
   include Hdf_wrapper
 
   (** Carry over some naming conventions from hdf.h *)
@@ -76,37 +75,36 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
   let v_start = v_initialize
   let v_end = v_finish
   let he_clear = hep_clear
-
   type hdf_vdata_interlace_t =
     | HDF_NO_INTERLACE
     | HDF_FULL_INTERLACE
 
   (** Low-level functions wrapped by hand to read and write data. *)
-  external vs_write: int32 -> ('a, 'b, Layout.t) Bigarray.Genarray.t ->
+  external vs_write: int32 -> ('a, 'b, 'c) Bigarray.Genarray.t ->
     int32 -> hdf_vdata_interlace_t -> unit = "ml_VSwrite"
-  external vs_read: int32 -> ('a, 'b, Layout.t) Bigarray.Genarray.t ->
+  external vs_read: int32 -> ('a, 'b, 'c) Bigarray.Genarray.t ->
     int32 -> hdf_vdata_interlace_t -> unit = "ml_VSread"
 
   (** [sd_writedata sdsid data] *)
   external sd_writedata: int32 ->
-    ('a, 'b, Layout.t) Bigarray.Genarray.t -> unit = "ml_SDwritedata"
+    ('a, 'b, 'c) Bigarray.Genarray.t -> unit = "ml_SDwritedata"
 
   (** [sd_readdata sdsid start end data] *)
   external sd_readdata: int32 -> int32 array -> int32 array ->
-    ('a, 'b, Layout.t) Bigarray.Genarray.t -> unit = "ml_SDreaddata"
+    ('a, 'b, 'c) Bigarray.Genarray.t -> unit = "ml_SDreaddata"
 
   (** SDS and file-wide attribute reading/writing *)
   external sd_readattr: int32 -> int32 ->
-    ('a, 'b, Layout.t) Bigarray.Genarray.t -> unit = "ml_SDreadattr"
+    ('a, 'b, 'c) Bigarray.Genarray.t -> unit = "ml_SDreadattr"
   external sd_setattr: int32 -> string -> int32 -> int32 ->
-    ('a, 'b, Layout.t) Bigarray.Genarray.t -> unit = "ml_SDsetattr"
+    ('a, 'b, 'c) Bigarray.Genarray.t -> unit = "ml_SDsetattr"
 
   (** Vdata attribute reading/writing *)
   external vs_getattr: int32 -> int -> int32 ->
-    ('a, 'b, Layout.t) Bigarray.Genarray.t ->
+    ('a, 'b, 'c) Bigarray.Genarray.t ->
     unit = "ml_VSgetattr"
   external vs_setattr: int32 -> int32 -> string -> int32 -> int32 ->
-    ('a, 'b, Layout.t) Bigarray.Genarray.t ->
+    ('a, 'b, 'c) Bigarray.Genarray.t ->
     unit = "ml_VSsetattr_bytecode" "ml_VSsetattr"
 
   (** SDS fill value reading/writing *)
@@ -123,6 +121,12 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
   let sd_getinfo sdsid =
     let (name, rank, dimsizes, data_type, num_attrs) = sd_getinfo sdsid in
     (name, rank, Array.sub dimsizes 0 (Int32.to_int rank), data_type, num_attrs)
+end
+
+(** A complete set of HDF4 modules, parameterized by the underlying
+    Bigarray layout (C or Fortran). *)
+module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
+  open Hdf4_low_level
 
   (** {6 Higher Level Functions} *)
 
@@ -494,8 +498,8 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
     | HDF_VSPACK
     | HDF_VSUNPACK
 
-  (** Pack and unpack Vdata fields.  This goes after the {!Hdf4} module because it
-      relies on its definitions. *)
+  (** Pack and unpack Vdata fields.  This is outside of the low-level module
+      because is relies on defintions in the the {!Hdf4} module. *)
   external vs_fpack : int32 -> hdf_vdata_pack_action_t -> string ->
     (int, Bigarray.int8_unsigned_elt, Layout.t) Bigarray.Genarray.t ->
     int -> int -> string -> Hdf4.t array -> unit
