@@ -512,22 +512,24 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
     }
   end
 
-  module SD =
-  struct
+  (** {6 HDF4 SDS interface} *)
+  module Sd = struct
     open Hdf4
 
     (** [select ?name ?index interface] will give the sds_id of the given
-        [name] or [index] associated with the SD [interface]. *)
+        [name] or [index] associated with the SD [interface].
+        Raises [Invalid_argument "select"] if both or neither [name] and
+        [index] are provided. *)
     let select ?name ?index interface =
       match name, index with
           None, None
-        | Some _, Some _ -> raise (Invalid_argument "Hdf.SD.select")
+        | Some _, Some _ -> raise (Invalid_argument "select")
         | Some n, None ->
             sd_select interface.sdid (sd_nametoindex interface.sdid n)
         | None, Some i -> sd_select interface.sdid i
 
-    (** [info_sds sds_id] can be used when a SDS is already selected. *)
-    let info_sds sds_id =
+    (** [info sds_id] can be used when a SDS is already selected. *)
+    let info sds_id =
       let (sds_name, rank, dimsizes, data_type, num_attrs) =
         sd_getinfo sds_id
       in
@@ -541,70 +543,157 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
         Int32.to_int num_attrs
       )
 
-    (** [read_ga ?name ?index kind interface] -
-        Must provide ONE of [name] OR [index].  It return a Bigarray containing
-        the SDS contents. *)
-    let read_ga ?name ?index kind interface =
+    let wrap_sds_call f ?name ?index interface =
       try_finally
         (select ?name ?index interface)
         sd_endaccess
-        (
-          fun sds_id ->
-            let (sds_name, dims, data_type, num_attrs) = info_sds sds_id in
-            let ba = Genarray.create kind Layout.layout dims in
-            (* Always read the entire data set.  The "stride" option is set to
-               NULL. *)
-            let start = Array.make (Array.length dims) 0l in
-            let edges = Array.map Int32.of_int dims in
-            sd_readdata sds_id start edges ba;
-            ba
-        )
+        f
+
+    type fill_value_t =
+      | Int_fill of int
+      | Float_fill of float
+      | Int32_fill of int32
+
+    let read_fill ?name ?index interface =
+      let f g = wrap_sds_call g ?name ?index interface in
+      function
+        | Hdf4.Int8 _
+        | Hdf4.UInt8 _
+        | Hdf4.Int16 _
+        | Hdf4.UInt16 _ -> Int_fill (f sd_getfillvalue_int)
+        | Hdf4.Int32 _ -> Int32_fill (f sd_getfillvalue_int32)
+        | Hdf4.Float32 _
+        | Hdf4.Float64 _ -> Float_fill (f sd_getfillvalue_float)
+
+    let write_fill sds_id =
+      function
+        | Int_fill x -> sd_setfillvalue_int sds_id x
+        | Int32_fill x -> sd_setfillvalue_int32 sds_id x
+        | Float_fill x -> sd_setfillvalue_float sds_id x
+
+    type t = {
+      (* The SDS entry name *)
+      name : string;
+      (* The actual SDS contents *)
+      data : Hdf4.t;
+      (* Attributes associated with this SDS *)
+      attributes : Attribute.t array;
+      (* Fill value for missing or unset values *)
+      fill : fill_value_t option;
+      (* What kind of data are these? *)
+      data_type : Hdf4.data_t;
+    }
+
+    let read_attributes sds_id =
+      let (_, _, _, num_attrs) = info sds_id in
+      Array.init num_attrs (
+        fun attr_index ->
+          let attr_index = Int32.of_int attr_index in
+          (* Find out the attribute information *)
+          let (name, data_type, count) = sd_attrinfo sds_id attr_index in
+          let count = Int32.to_int count in
+          (* Allocate space for, then read, the attribute data *)
+          let data =
+            Hdf4.create (Hdf4.hdf_datatype_to_mlvariant data_type) [|count|]
+          in
+          let f x = sd_readattr sds_id attr_index x in
+          {
+            Attribute.name = name;
+            data =
+              let () =
+                match data with
+                | Hdf4.Int8 x -> f x
+                | Hdf4.UInt8 x -> f x
+                | Hdf4.Int16 x -> f x
+                | Hdf4.UInt16 x -> f x
+                | Hdf4.Int32 x -> f x
+                | Hdf4.Float32 x -> f x
+                | Hdf4.Float64 x -> f x
+              in
+              data
+          }
+      )
+
+    let write_attributes sds_id attrs =
+      Array.iter (
+        fun attr ->
+          let f x =
+            sd_setattr sds_id attr.Attribute.name
+              (Hdf4.mlvariant_to_hdf_datatype
+                (Hdf4._data_type_from_t attr.Attribute.data))
+              (Int32.of_int (Hdf4.elems attr.Attribute.data))
+              x
+          in
+          match attr.Attribute.data with
+          | Hdf4.Int8 x -> f x
+          | Hdf4.UInt8 x -> f x
+          | Hdf4.Int16 x -> f x
+          | Hdf4.UInt16 x -> f x
+          | Hdf4.Int32 x -> f x
+          | Hdf4.Float32 x -> f x
+          | Hdf4.Float64 x -> f x
+      ) attrs
+
+    (** [read_ga ?name ?index ?dims kind interface] -
+        Must provide ONE of [name] OR [index].
+        A subset of an SDS can be read by passing a list of [(offset, length)]
+        pairs for each dimension in the data set.  An [offset] of [0] would
+        start from the first element of that dimension of the SDS.  If no [dim]
+        list is provided then all data are read and returned.
+        It returns a Bigarray containing the SDS contents. *)
+    let read_ga ?name ?index ?subset kind interface =
+      wrap_sds_call ?name ?index (
+        fun sds_id ->
+          let (_, dims, _, _) = info sds_id in
+          let ba = Genarray.create kind Layout.layout dims in
+          (* Default to reading the entire data set.  The "stride" option is
+             set to NULL in the C stubs. *)
+          let start, edges =
+            let start_default = Array.make (Array.length dims) 0 in
+            let edges_default = dims in
+            match subset with
+            | None -> (start_default, edges_default)
+            | Some (s, e) ->
+                Array.mapi (fun i x -> x |? start_default.(i)) s,
+                Array.mapi (fun i x -> x |? dims.(i)) e
+          in
+          let start = Array.map Int32.of_int start in
+          let edges = Array.map Int32.of_int edges in
+          sd_readdata sds_id start edges ba;
+          ba
+      ) interface
 
     (** [read ?name ?index interface] -
-        Must provide ONE of [name] OR [index].  It returns an object containing
-        the SDS contents and related metadata. *)
-    let read ?name ?index interface =
-      try_finally
-        (select ?name ?index interface)
-        sd_endaccess
-        (
-          fun sds_id ->
-            let (sds_name, dims, data_type, num_attrs) = info_sds sds_id in
-            let data =
-              let f k = read_ga ?name ?index k interface in
-              match data_type with
-                  `int8 -> Int8 (f int8_signed)
-                | `uint8 -> UInt8 (f int8_unsigned)
-                | `int16 -> Int16 (f int16_signed)
-                | `uint16 -> UInt16 (f int16_unsigned)
-                | `int32 -> Int32 (f int32)
-                | `float32 -> Float32 (f float32)
-                | `float64 -> Float64 (f float64)
-            in
-            (
-              object
-                method data = data
-                method name = sds_name
-                method dims = dims
-                method data_type = data_type
-                method num_attrs = num_attrs
-              end
-            )
-        )
-
-    (** [get_specs sd_id] returns an array of the information given by
-        {!sd_getinfo for each SDS available through the given [sd_id]
-        interface. *)
-    let get_specs interface =
-      let (num_sds, _) = sd_fileinfo interface.sdid in
-      Array.init (Int32.to_int num_sds)
-        (
-          fun i ->
-            try_finally
-              (sd_select interface.sdid (Int32.of_int i))
-              sd_endaccess
-              info_sds
-        )
+        Must provide ONE of [name] OR [index].  Returns the SDS contents and
+        related metadata. *)
+    let read ?name ?index ?subset interface =
+      let (sds_name, _, data_type, _) =
+        wrap_sds_call info ?name ?index interface
+      in
+      let data =
+        let f k = read_ga ?name ?index ?subset k interface in
+        match data_type with
+        | `int8 -> Int8 (f int8_signed)
+        | `uint8 -> UInt8 (f int8_unsigned)
+        | `int16 -> Int16 (f int16_signed)
+        | `uint16 -> UInt16 (f int16_unsigned)
+        | `int32 -> Int32 (f int32)
+        | `float32 -> Float32 (f float32)
+        | `float64 -> Float64 (f float64)
+      in
+      let attrs = wrap_sds_call read_attributes ?name ?index interface in
+      let fill =
+        unless (Failure "Error getting SDS fill value.")
+          (fun i -> read_fill ?name ?index i data)
+          interface
+      in
+      {
+        name = sds_name;
+        data = data;
+        attributes = attrs;
+        fill = fill;
+        data_type = data_type;
+      }
 
     (** [read_all interface] returns an array of the SDS contents of
         [interface]. *)
@@ -613,6 +702,17 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       Array.init
         (Int32.to_int num_sds)
         (fun i -> read ~index:(Int32.of_int i) interface)
+
+    let create interface data =
+      match
+        sd_create interface.Hdf4.sdid data.name
+          (Hdf4.mlvariant_to_hdf_datatype data.data_type)
+          (Array.map Int32.of_int (Hdf4.dims data.data))
+      with
+      | (-1l) ->
+          let error_str = he_string (he_value 0l) in
+          raise (Hdf4.HdfError error_str)
+      | sds_id -> sds_id
 
     (** [write_data sds_id data] creates an entry and writes [data] to the file
         referenced by [sds_id]. *)
@@ -627,366 +727,18 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       | Float32 x -> f x
       | Float64 x -> f x
 
-    (** [create_data sd_id name data] - create and write an SDS named [name] *)
-    let create_data interface name sds =
-      match
-        sd_create interface.sdid name
-          (mlvariant_to_hdf_datatype (_data_type_from_t sds))
-          (Array.map Int32.of_int (dims sds))
-      with
-      | (-1l) ->
-          let error_str = he_string (he_value 0l) in
-          raise (
-            HdfError
-              ("Hdf.SD.create_data: unable to create SDS entry - " ^ error_str)
-          )
-      | sds_id ->
-          write_data sds_id sds;
-          sd_endaccess sds_id
-
-    (** CONVENIENCE FUNCTIONS for browsing SDSs *)
-
-    (** [info ?name ?index interface] provides a wrapper around
-        {Hdf.sd_getinfo} to provide a cleaner, more OCaml-friendly
-        interface. *)
-    let info ?name ?index interface =
+    let write interface data =
       try_finally
-        (select ?name ?index interface)
+        (create interface data)
         sd_endaccess
-        (fun sds_id -> info_sds sds_id)
-
-    (** [data_type ?name ?index interface] returns the type of the given
-        [name] or [index] associated with the SD [interface]. *)
-    let data_type ?name ?index interface =
-      let (_, _, data_type, _) = info ?name ?index interface in
-      data_type
-
-    module Generic = struct
-      let wrap_sds_call f ?name ?index interface =
-        try_finally
-          (select ?name ?index interface)
-          sd_endaccess
-          f
-
-      type fill_value_t =
-        | Int_fill of int
-        | Float_fill of float
-        | Int32_fill of int32
-
-      let read_fill ?name ?index interface =
-        let f g = wrap_sds_call g ?name ?index interface in
-        function
-          | Hdf4.Int8 _
-          | Hdf4.UInt8 _
-          | Hdf4.Int16 _
-          | Hdf4.UInt16 _ -> Int_fill (f sd_getfillvalue_int)
-          | Hdf4.Int32 _ -> Int32_fill (f sd_getfillvalue_int32)
-          | Hdf4.Float32 _
-          | Hdf4.Float64 _ -> Float_fill (f sd_getfillvalue_float)
-
-      let write_fill sds_id =
-        function
-          | Int_fill x -> sd_setfillvalue_int sds_id x
-          | Int32_fill x -> sd_setfillvalue_int32 sds_id x
-          | Float_fill x -> sd_setfillvalue_float sds_id x
-
-      type t = {
-        (* The SDS entry name *)
-        name : string;
-        (* The actual SDS contents *)
-        data : Hdf4.t;
-        (* Attributes associated with this SDS *)
-        attributes : Attribute.t array;
-        (* Fill value for missing or unset values *)
-        fill : fill_value_t option;
-        (* What kind of data are these? *)
-        data_type : Hdf4.data_t;
-      }
-
-      let read_attributes sds_id =
-        let (sds_name, dims, data_type, num_attrs) = info_sds sds_id in
-        Array.init num_attrs (
-          fun attr_index ->
-            let attr_index = Int32.of_int attr_index in
-            (* Find out the attribute information *)
-            let (name, data_type, count) = sd_attrinfo sds_id attr_index in
-            let count = Int32.to_int count in
-            (* Allocate space for, then read, the attribute data *)
-            let data =
-              Hdf4.create (Hdf4.hdf_datatype_to_mlvariant data_type) [|count|]
-            in
-            let f x = sd_readattr sds_id attr_index x in
-            {
-              Attribute.name = name;
-              data =
-                let () =
-                  match data with
-                  | Hdf4.Int8 x -> f x
-                  | Hdf4.UInt8 x -> f x
-                  | Hdf4.Int16 x -> f x
-                  | Hdf4.UInt16 x -> f x
-                  | Hdf4.Int32 x -> f x
-                  | Hdf4.Float32 x -> f x
-                  | Hdf4.Float64 x -> f x
-                in
-                data
-            }
+        (
+          fun sds_id ->
+            (* Write the data, attributes and fill value (if there is one). *)
+            write_data sds_id data.data;
+            write_attributes sds_id data.attributes;
+            Option.may (write_fill sds_id) data.fill;
         )
-
-      let write_attributes sds_id attrs =
-        Array.iter (
-          fun attr ->
-            let f x =
-              sd_setattr sds_id attr.Attribute.name
-                (Hdf4.mlvariant_to_hdf_datatype
-                  (Hdf4._data_type_from_t attr.Attribute.data))
-                (Int32.of_int (Hdf4.elems attr.Attribute.data))
-                x
-            in
-            match attr.Attribute.data with
-            | Hdf4.Int8 x -> f x
-            | Hdf4.UInt8 x -> f x
-            | Hdf4.Int16 x -> f x
-            | Hdf4.UInt16 x -> f x
-            | Hdf4.Int32 x -> f x
-            | Hdf4.Float32 x -> f x
-            | Hdf4.Float64 x -> f x
-        ) attrs
-
-      let read ?name ?index interface =
-        let sds = read ?name ?index interface in
-        let attrs = wrap_sds_call read_attributes ?name ?index interface in
-        let fill =
-          unless (Failure "Error getting SDS fill value.")
-            (fun i -> read_fill ?name ?index i sds#data)
-            interface
-        in
-        {
-          name = sds#name;
-          data = sds#data;
-          attributes = attrs;
-          fill = fill;
-          data_type = sds#data_type;
-        }
-
-      (** [read_all interface] returns an array of the SDS contents of
-          [interface]. *)
-      let read_all interface =
-        let (num_sds, _) = sd_fileinfo interface.sdid in
-        Array.init
-          (Int32.to_int num_sds)
-          (fun i -> read ~index:(Int32.of_int i) interface)
-
-      let create interface data =
-        match
-          sd_create interface.Hdf4.sdid data.name
-            (Hdf4.mlvariant_to_hdf_datatype data.data_type)
-            (Array.map Int32.of_int (Hdf4.dims data.data))
-        with
-        | (-1l) ->
-            let error_str = he_string (he_value 0l) in
-            raise (Hdf4.HdfError error_str)
-        | sds_id -> sds_id
-
-      let write interface data =
-        try_finally
-          (create interface data)
-          sd_endaccess
-          (
-            fun sds_id ->
-              (* Write the data, attributes and fill value (if there is one). *)
-              write_data sds_id data.data;
-              write_attributes sds_id data.attributes;
-              Option.may (write_fill sds_id) data.fill;
-          )
-    end
-
-    module Strict = struct
-      type ('a, 'b) kind_t = {
-        read_data : ?name:string -> ?index:int32 -> Hdf4.interface ->
-          ('a, 'b, Layout.t) Genarray.t;
-        write_data : ('a, 'b, Layout.t) Genarray.t -> int32 -> unit;
-        read_fill : int32 -> 'a;
-        write_fill : int32 -> 'a -> unit;
-        data_type : Hdf4.data_t;
-      }
-
-      let sd_read_data data_type =
-        fun ?name ?index interface ->
-          read_ga ?name ?index data_type interface
-
-      let sd_write_data d sds_id = write_data sds_id d
-
-      let hdf_float32 = {
-        read_fill = sd_getfillvalue_float;
-        write_fill = sd_setfillvalue_float;
-        read_data = sd_read_data float32;
-        write_data = (fun d -> sd_write_data (Hdf4.Float32 d));
-        data_type = `float32;
-      }
-
-      let hdf_float64 = {
-        read_fill = sd_getfillvalue_float;
-        write_fill = sd_setfillvalue_float;
-        read_data = sd_read_data float64;
-        write_data = (fun d -> sd_write_data (Hdf4.Float64 d));
-        data_type = `float64;
-      }
-
-      let hdf_int8 = {
-        read_fill = sd_getfillvalue_int;
-        write_fill = sd_setfillvalue_int;
-        read_data = sd_read_data int8_signed;
-        write_data = (fun d -> sd_write_data (Hdf4.Int8 d));
-        data_type = `int8;
-      }
-
-      let hdf_uint8 = {
-        read_fill = sd_getfillvalue_int;
-        write_fill = sd_setfillvalue_int;
-        read_data = sd_read_data int8_unsigned;
-        write_data = (fun d -> sd_write_data (Hdf4.UInt8 d));
-        data_type = `uint8;
-      }
-
-      let hdf_int16 = {
-        read_fill = sd_getfillvalue_int;
-        write_fill = sd_setfillvalue_int;
-        read_data = sd_read_data int16_signed;
-        write_data = (fun d -> sd_write_data (Hdf4.Int16 d));
-        data_type = `int16;
-      }
-
-      let hdf_uint16 = {
-        read_fill = sd_getfillvalue_int;
-        write_fill = sd_setfillvalue_int;
-        read_data = sd_read_data int16_unsigned;
-        write_data = (fun d -> sd_write_data (Hdf4.UInt16 d));
-        data_type = `uint16;
-      }
-
-      let hdf_int32 = {
-        read_fill = sd_getfillvalue_int32;
-        write_fill = sd_setfillvalue_int32;
-        read_data = sd_read_data int32;
-        write_data = (fun d -> sd_write_data (Hdf4.Int32 d));
-        data_type = `int32;
-      }
-
-      let wrap_sds_call f ?name ?index interface =
-        try_finally
-          (select ?name ?index interface)
-          sd_endaccess
-          f
-
-      type ('a, 'b) data_t = {
-        (* The SDS entry name *)
-        name : string;
-        (* The actual SDS contents *)
-        data : ('a, 'b, Layout.t) Genarray.t;
-        (* Attributes associated with this SDS *)
-        attributes : Attribute.t array;
-        (* Fill value for missing or unset values *)
-        fill : 'a option;
-        (* What kind of data are these? *)
-        kind : ('a, 'b) kind_t;
-      }
-
-      let read_attributes sds_id =
-        let (sds_name, dims, data_type, num_attrs) = info_sds sds_id in
-        Array.init num_attrs (
-          fun attr_index ->
-            let attr_index = Int32.of_int attr_index in
-            (* Find out the attribute information *)
-            let (name, data_type, count) = sd_attrinfo sds_id attr_index in
-            let count = Int32.to_int count in
-            (* Allocate space for, then read, the attribute data *)
-            let data =
-              Hdf4.create (Hdf4.hdf_datatype_to_mlvariant data_type) [|count|]
-            in
-            let f x = sd_readattr sds_id attr_index x in
-            {
-              Attribute.name = name;
-              data =
-                let () =
-                  match data with
-                  | Hdf4.Int8 x -> f x
-                  | Hdf4.UInt8 x -> f x
-                  | Hdf4.Int16 x -> f x
-                  | Hdf4.UInt16 x -> f x
-                  | Hdf4.Int32 x -> f x
-                  | Hdf4.Float32 x -> f x
-                  | Hdf4.Float64 x -> f x
-                in
-                data
-            }
-        )
-
-      let write_attributes attrs sds_id =
-        (*let f' name t count x = sd_setattr sds_id name t count x in*)
-        Array.iter (
-          fun attr ->
-            let f x =
-              sd_setattr sds_id attr.Attribute.name
-                (Hdf4.mlvariant_to_hdf_datatype
-                  (Hdf4._data_type_from_t attr.Attribute.data))
-                (Int32.of_int (Hdf4.elems attr.Attribute.data))
-                x
-            in
-            match attr.Attribute.data with
-            | Hdf4.Int8 x -> f x
-            | Hdf4.UInt8 x -> f x
-            | Hdf4.Int16 x -> f x
-            | Hdf4.UInt16 x -> f x
-            | Hdf4.Int32 x -> f x
-            | Hdf4.Float32 x -> f x
-            | Hdf4.Float64 x -> f x
-        ) attrs
-
-      let read ?name ?index kind interface =
-        let (sds_name, dims, data_type, num_attrs) = info ?name ?index interface in
-        (* Make sure the data type matches.  Otherwise bomb out. *)
-        if data_type <> kind.data_type then
-          raise (Invalid_argument "SDS data type mismatch")
-        else
-          {
-            name = sds_name;
-            data = kind.read_data ?name ?index interface;
-            attributes = wrap_sds_call read_attributes ?name ?index interface;
-            fill =
-              unless (Failure "Error getting SDS fill value.")
-                (fun f -> wrap_sds_call f ?name ?index interface)
-                kind.read_fill;
-            kind = kind;
-          }
-
-      let create data interface =
-        match
-          sd_create interface.Hdf4.sdid data.name
-            (Hdf4.mlvariant_to_hdf_datatype data.kind.data_type)
-            (Array.map Int32.of_int (Genarray.dims data.data))
-        with
-        | (-1l) ->
-            let error_str = he_string (he_value 0l) in
-            raise (Hdf4.HdfError error_str)
-        | sds_id -> sds_id
-
-      let write data interface =
-        try_finally
-          (create data interface)
-          sd_endaccess
-          (
-            fun sds_id ->
-              (* Write the data, attributes and fill value (if there is one). *)
-              data.kind.write_data data.data sds_id;
-              write_attributes data.attributes sds_id;
-              Option.may (data.kind.write_fill sds_id) data.fill;
-          )
-    end
   end
-
-  (** A module alias to make access to the new SDS interface simpler *)
-  module Sd = SD.Generic
 
   module Vdata =
   struct
