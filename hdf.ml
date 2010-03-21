@@ -516,17 +516,37 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
   module Sd = struct
     open Hdf4
 
+    type fill_value_t =
+      | Int_fill of int
+      | Float_fill of float
+      | Int32_fill of int32
+
+    type t = {
+      (* The SDS entry name *)
+      name : string;
+      (* The actual SDS contents *)
+      data : Hdf4.t;
+      (* Attributes associated with this SDS *)
+      attributes : Attribute.t array;
+      (* Fill value for missing or unset values *)
+      fill : fill_value_t option;
+      (* What kind of data are these? *)
+      data_type : Hdf4.data_t;
+    }
+
     (** [select ?name ?index interface] will give the sds_id of the given
         [name] or [index] associated with the SD [interface].
         Raises [Invalid_argument "select"] if both or neither [name] and
         [index] are provided. *)
     let select ?name ?index interface =
-      match name, index with
-          None, None
+      let i =
+        match name, index with
+        | None, None
         | Some _, Some _ -> raise (Invalid_argument "select")
-        | Some n, None ->
-            sd_select interface.sdid (sd_nametoindex interface.sdid n)
-        | None, Some i -> sd_select interface.sdid i
+        | Some n, None -> sd_nametoindex interface.sdid n
+        | None, Some i -> Int32.of_int i
+      in
+      sd_select interface.sdid i
 
     (** [info sds_id] can be used when a SDS is already selected. *)
     let info sds_id =
@@ -549,11 +569,6 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
         sd_endaccess
         f
 
-    type fill_value_t =
-      | Int_fill of int
-      | Float_fill of float
-      | Int32_fill of int32
-
     let read_fill ?name ?index interface =
       let f g = wrap_sds_call g ?name ?index interface in
       function
@@ -570,19 +585,6 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
         | Int_fill x -> sd_setfillvalue_int sds_id x
         | Int32_fill x -> sd_setfillvalue_int32 sds_id x
         | Float_fill x -> sd_setfillvalue_float sds_id x
-
-    type t = {
-      (* The SDS entry name *)
-      name : string;
-      (* The actual SDS contents *)
-      data : Hdf4.t;
-      (* Attributes associated with this SDS *)
-      attributes : Attribute.t array;
-      (* Fill value for missing or unset values *)
-      fill : fill_value_t option;
-      (* What kind of data are these? *)
-      data_type : Hdf4.data_t;
-    }
 
     let read_attributes sds_id =
       let (_, _, _, num_attrs) = info sds_id in
@@ -634,7 +636,7 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
           | Hdf4.Float64 x -> f x
       ) attrs
 
-    (** [read_ga ?name ?index ?dims kind interface] -
+    (** [read_ga ?name ?index ?subset kind interface] -
         Must provide ONE of [name] OR [index].
         A subset of an SDS can be read by passing a list of [(offset, length)]
         pairs for each dimension in the data set.  An [offset] of [0] would
@@ -653,9 +655,22 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
             let edges_default = dims in
             match subset with
             | None -> (start_default, edges_default)
-            | Some (s, e) ->
-                Array.mapi (fun i x -> x |? start_default.(i)) s,
-                Array.mapi (fun i x -> x |? dims.(i)) e
+            | Some sub ->
+                let sub' =
+                  List.mapi (fun i x -> x |? (start_default.(i), dims.(i))) sub
+                in
+                Array.of_list (List.map fst sub'),
+                Array.of_list (List.map snd sub')
+          in
+          (* Make sure the correct number of dimensions were provided *)
+          let () =
+            if
+              Array.length start <> Array.length dims ||
+              Array.length edges <> Array.length dims
+            then
+              raise (Invalid_argument "wrong number of dimensions")
+            else
+              ()
           in
           let start = Array.map Int32.of_int start in
           let edges = Array.map Int32.of_int edges in
@@ -663,7 +678,7 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
           ba
       ) interface
 
-    (** [read ?name ?index interface] -
+    (** [read ?name ?index ?subset interface] -
         Must provide ONE of [name] OR [index].  Returns the SDS contents and
         related metadata. *)
     let read ?name ?index ?subset interface =
@@ -701,7 +716,7 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       let (num_sds, _) = sd_fileinfo interface.sdid in
       Array.init
         (Int32.to_int num_sds)
-        (fun i -> read ~index:(Int32.of_int i) interface)
+        (fun i -> read ~index:i interface)
 
     let create interface data =
       match
