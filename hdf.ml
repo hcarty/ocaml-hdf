@@ -48,14 +48,14 @@ module type HDF4_LAYOUT_TYPE = sig
   val slice : ('a, 'b, t) Genarray.t -> int array -> ('a, 'b, t) Genarray.t
 end
 
-module C_layout : HDF4_LAYOUT_TYPE = struct
+module C_layout = struct
   type t = c_layout
   let layout = c_layout
   let sub = Genarray.sub_left
   let slice = Genarray.slice_left
 end
 
-module Fortran_layout : HDF4_LAYOUT_TYPE = struct
+module Fortran_layout = struct
   type t = fortran_layout
   let layout = fortran_layout
   let sub = Genarray.sub_right

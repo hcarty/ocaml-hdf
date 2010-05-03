@@ -9,8 +9,8 @@ module type HDF4_LAYOUT_TYPE =
       ('a, 'b, t) ExtBigarray.Genarray.t ->
       int array -> ('a, 'b, t) ExtBigarray.Genarray.t
   end
-module C_layout : HDF4_LAYOUT_TYPE
-module Fortran_layout : HDF4_LAYOUT_TYPE
+module C_layout : HDF4_LAYOUT_TYPE with type t = Bigarray.c_layout
+module Fortran_layout : HDF4_LAYOUT_TYPE with type t = Bigarray.fortran_layout
 module Hdf4_low_level :
   sig
     type _fcd = char option
