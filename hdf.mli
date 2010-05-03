@@ -596,6 +596,27 @@ module Make :
             t ->
             (float, Batteries.Bigarray.float64_elt, Layout.t)
             ExtBigarray.Genarray.t
+          val of_int8 :
+            (int, Batteries.Bigarray.int8_signed_elt, Layout.t)
+            ExtBigarray.Genarray.t -> t
+          val of_uint8 :
+            (int, Batteries.Bigarray.int8_unsigned_elt, Layout.t)
+            ExtBigarray.Genarray.t -> t
+          val of_int16 :
+            (int, Batteries.Bigarray.int16_signed_elt, Layout.t)
+            ExtBigarray.Genarray.t -> t
+          val of_uint16 :
+            (int, Batteries.Bigarray.int16_unsigned_elt, Layout.t)
+            ExtBigarray.Genarray.t -> t
+          val of_int32 :
+            (int32, Batteries.Bigarray.int32_elt, Layout.t)
+            ExtBigarray.Genarray.t -> t
+          val of_float32 :
+            (float, Batteries.Bigarray.float32_elt, Layout.t)
+            ExtBigarray.Genarray.t -> t
+          val of_float64 :
+            (float, Batteries.Bigarray.float64_elt, Layout.t)
+            ExtBigarray.Genarray.t -> t
           val is_hdf : string -> bool
           external hdf_datatype_to_mlvariant : int32 -> data_t
             = "hdf_datatype_to_mlvariant"
@@ -661,6 +682,9 @@ module Make :
             fill : fill_value_t option;
             data_type : Hdf4.data_t;
           }
+          val make :
+            ?attributes:Attribute.t array ->
+            ?fill:fill_value_t -> string -> Hdf4.t -> t
           val select : ?name:string -> ?index:int -> Hdf4.interface -> int32
           val info : int32 -> string * int array * Hdf4.data_t * int
           val wrap_sds_call :
@@ -812,6 +836,27 @@ module C :
           t ->
           (float, Batteries.Bigarray.float64_elt, C_layout.t)
           ExtBigarray.Genarray.t
+        val of_int8 :
+          (int, Batteries.Bigarray.int8_signed_elt, C_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_uint8 :
+          (int, Batteries.Bigarray.int8_unsigned_elt, C_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_int16 :
+          (int, Batteries.Bigarray.int16_signed_elt, C_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_uint16 :
+          (int, Batteries.Bigarray.int16_unsigned_elt, C_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_int32 :
+          (int32, Batteries.Bigarray.int32_elt, C_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_float32 :
+          (float, Batteries.Bigarray.float32_elt, C_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_float64 :
+          (float, Batteries.Bigarray.float64_elt, C_layout.t)
+          ExtBigarray.Genarray.t -> t
         val is_hdf : string -> bool
         external hdf_datatype_to_mlvariant : int32 -> data_t
           = "hdf_datatype_to_mlvariant"
@@ -888,6 +933,9 @@ module C :
           fill : fill_value_t option;
           data_type : Hdf4.data_t;
         }
+        val make :
+          ?attributes:Attribute.t array ->
+          ?fill:fill_value_t -> string -> Hdf4.t -> t
         val select : ?name:string -> ?index:int -> Hdf4.interface -> int32
         val info : int32 -> string * int array * Hdf4.data_t * int
         val wrap_sds_call :
@@ -1040,6 +1088,27 @@ module Fortran :
           t ->
           (float, Batteries.Bigarray.float64_elt, Fortran_layout.t)
           ExtBigarray.Genarray.t
+        val of_int8 :
+          (int, Batteries.Bigarray.int8_signed_elt, Fortran_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_uint8 :
+          (int, Batteries.Bigarray.int8_unsigned_elt, Fortran_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_int16 :
+          (int, Batteries.Bigarray.int16_signed_elt, Fortran_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_uint16 :
+          (int, Batteries.Bigarray.int16_unsigned_elt, Fortran_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_int32 :
+          (int32, Batteries.Bigarray.int32_elt, Fortran_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_float32 :
+          (float, Batteries.Bigarray.float32_elt, Fortran_layout.t)
+          ExtBigarray.Genarray.t -> t
+        val of_float64 :
+          (float, Batteries.Bigarray.float64_elt, Fortran_layout.t)
+          ExtBigarray.Genarray.t -> t
         val is_hdf : string -> bool
         external hdf_datatype_to_mlvariant : int32 -> data_t
           = "hdf_datatype_to_mlvariant"
@@ -1116,6 +1185,9 @@ module Fortran :
           fill : fill_value_t option;
           data_type : Hdf4.data_t;
         }
+        val make :
+          ?attributes:Attribute.t array ->
+          ?fill:fill_value_t -> string -> Hdf4.t -> t
         val select : ?name:string -> ?index:int -> Hdf4.interface -> int32
         val info : int32 -> string * int array * Hdf4.data_t * int
         val wrap_sds_call :

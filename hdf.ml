@@ -243,6 +243,15 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
     let to_float64 = function
         Float64 x -> x | _ -> raise (BadDataType ("Hdf4.float64", ""))
 
+    (** [of_* data] returns a {!t} wrapping [data]. *)
+    let of_int8 x = Int8 x
+    let of_uint8 x = UInt8 x
+    let of_int16 x = Int16 x
+    let of_uint16 x = UInt16 x
+    let of_int32 x = Int32 x
+    let of_float32 x = Float32 x
+    let of_float64 x = Float64 x
+
     (** {6 Internal library functions } *)
 
     (** Check to see if a file is a valid HDF4 data file.
@@ -533,6 +542,17 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       (* What kind of data are these? *)
       data_type : Hdf4.data_t;
     }
+
+    (** [make ?attributes ?fill name data] creates a {!t} from the given
+        information. *)
+    let make ?(attributes = [||]) ?fill name data =
+      {
+        name = name;
+        data = data;
+        attributes = attributes;
+        fill = fill;
+        data_type = _data_type_from_t data;
+      }
 
     (** [select ?name ?index interface] will give the sds_id of the given
         [name] or [index] associated with the SD [interface].
