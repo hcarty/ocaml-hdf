@@ -658,7 +658,6 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       wrap_sds_call ?name ?index (
         fun sds_id ->
           let (_, dims, _, _) = info sds_id in
-          let ba = Genarray.create kind Layout.layout dims in
           (* Default to reading the entire data set.  The "stride" option is
              set to NULL in the C stubs. *)
           let start, edges =
@@ -683,6 +682,7 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
             else
               ()
           in
+          let ba = Genarray.create kind Layout.layout edges in
           let start = Array.map Int32.of_int start in
           let edges = Array.map Int32.of_int edges in
           sd_readdata sds_id start edges ba;
