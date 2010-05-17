@@ -668,7 +668,15 @@ module Make :
         Batteries.Bigarray.Genarray.t ->
         int -> int -> string -> Hdf4.t array -> unit = "ml_VSfpack_bytecode"
         "ml_VSfpack"
-      module Attribute : sig type t = { name : string; data : Hdf4.t; } end
+      module Attribute :
+        sig
+          type t = { name : string; data : Hdf4.t; }
+          val make : string -> Hdf4.t -> t
+          val data :
+            t ->
+            (Hdf4.t -> ('a, 'b, Layout.t) Bigarray.Genarray.t) ->
+            ('a, 'b, Layout.t) Bigarray.Array1.t
+        end
       module Sd :
         sig
           type fill_value_t =
@@ -915,6 +923,11 @@ module C :
           name : string;
           data : Hdf4.t;
         }
+        val make : string -> Hdf4.t -> t
+        val data :
+          t ->
+          (Hdf4.t -> ('a, 'b, C_layout.t) Bigarray.Genarray.t) ->
+          ('a, 'b, C_layout.t) Bigarray.Array1.t
       end
     module Sd :
       sig
@@ -1165,6 +1178,11 @@ module Fortran :
           name : string;
           data : Hdf4.t;
         }
+        val make : string -> Hdf4.t -> t
+        val data :
+          t ->
+          (Hdf4.t -> ('a, 'b, Fortran_layout.t) Bigarray.Genarray.t) ->
+          ('a, 'b, Fortran_layout.t) Bigarray.Array1.t
       end
     module Sd :
       sig

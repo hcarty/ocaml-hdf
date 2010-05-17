@@ -528,6 +528,14 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       name : string;
       data : Hdf4.t;
     }
+
+    let make name data = {
+      name = name;
+      data = data;
+    }
+
+    let data a f =
+      array1_of_genarray (f a.data)
   end
 
   (** {6 HDF4 SDS interface} *)
