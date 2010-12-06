@@ -140,7 +140,6 @@ value mlvariant_to_hdf_datatype(value datatype_variant) {
     CAMLparam1(datatype_variant);
 
     int32 datatype;
-    int variant_number;
 
 #define CASE_VARIANT(txt, hdf)                                  \
     if ( hash_variant(txt) == datatype_variant ) {              \
@@ -158,7 +157,7 @@ value mlvariant_to_hdf_datatype(value datatype_variant) {
     else CASE_VARIANT("char8", DFNT_CHAR8)
     else {
         char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
-        sprintf(exception_message, "mlvariant_to_hdf_datatype: Found an unsupported data type: %d", variant_number);
+        sprintf(exception_message, "mlvariant_to_hdf_datatype: Found an unsupported data type");
         caml_failwith(exception_message);
         // This does not/should not matter... but it's here anyway.
         datatype = -1;
