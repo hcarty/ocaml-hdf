@@ -136,9 +136,6 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
     type data_t =
       [ `int8 | `uint8 | `int16 | `uint16 | `int32 | `float32 | `float64 ]
 
-    (** Exception raised if we try to get at data which we shouldn't or can't handle. *)
-    exception BadDataType of string * string
-
     (** Exception raised if reading or writing data fails *)
     exception HdfError of string
 
@@ -227,21 +224,21 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       | `float64 -> Float64 (f float64)
 
     (** [to_* data] returns the Genarray.t wrapped in [data]. Raises
-        [BadDataType] if the wrong data type is provided. *)
+        [Invalid_argument] if the wrong data type is provided. *)
     let to_int8 = function
-        Int8 x -> x | _ -> raise (BadDataType ("Hdf4.int8", ""))
+        Int8 x -> x | _ -> invalid_arg "to_int8"
     let to_uint8 = function
-        UInt8 x -> x | _ -> raise (BadDataType ("Hdf4.uint8", ""))
+        UInt8 x -> x | _ -> invalid_arg "to_uint8"
     let to_int16 = function
-        Int16 x -> x | _ -> raise (BadDataType ("Hdf4.int16", ""))
+        Int16 x -> x | _ -> invalid_arg "to_int16"
     let to_uint16 = function
-        UInt16 x -> x | _ -> raise (BadDataType ("Hdf4.uint16", ""))
+        UInt16 x -> x | _ -> invalid_arg "to_uint16"
     let to_int32 = function
-        Int32 x -> x | _ -> raise (BadDataType ("Hdf4.int32", ""))
+        Int32 x -> x | _ -> invalid_arg "to_int32"
     let to_float32 = function
-        Float32 x -> x | _ -> raise (BadDataType ("Hdf4.float32", ""))
+        Float32 x -> x | _ -> invalid_arg "to_float32"
     let to_float64 = function
-        Float64 x -> x | _ -> raise (BadDataType ("Hdf4.float64", ""))
+        Float64 x -> x | _ -> invalid_arg "to_float64"
 
     (** [of_* data] returns a {!t} wrapping [data]. *)
     let of_int8 x = Int8 x
@@ -306,68 +303,77 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       | Float32 _ -> DFNT_FLOAT32
       | Float64 _ -> DFNT_FLOAT64
 
-    (** [dims data] returns an array holding the dimensions of [data]. *)
-    let dims data =
-      let f x = Genarray.dims x in
+    type 'u apply_f_t = {
+      f : 'a 'b. ('a, 'b, Layout.t) Genarray.t -> 'u
+    }
+
+    type map_f_t = {
+      g : 'a 'b 'c 'd. ('a, 'b, Layout.t) Genarray.t ->
+        ('c, 'd, Layout.t) Genarray.t
+    }
+
+    type restricted_map_f_t = {
+      h : 'a 'b. ('a, 'b, Layout.t) Genarray.t ->
+        ('a, 'b, Layout.t) Genarray.t
+    }
+
+    (** [apply f data] applies the functions wrapped in [f] to [data]. *)
+    let apply f data =
       match data with
-      | Int8 x -> f x
-      | UInt8 x -> f x
-      | Int16 x -> f x
-      | UInt16 x -> f x
-      | Int32 x -> f x
-      | Float32 x -> f x
-      | Float64 x -> f x
+      | Int8 x -> f.f x
+      | UInt8 x -> f.f x
+      | Int16 x -> f.f x
+      | UInt16 x -> f.f x
+      | Int32 x -> f.f x
+      | Float32 x -> f.f x
+      | Float64 x -> f.f x
+
+    (** [map f data] applies the functions wrapped in [f] to [data]. *)
+    let map f data =
+      match data with
+      | Int8 x -> f.g x
+      | UInt8 x -> f.g x
+      | Int16 x -> f.g x
+      | UInt16 x -> f.g x
+      | Int32 x -> f.g x
+      | Float32 x -> f.g x
+      | Float64 x -> f.g x
+
+    (** [map_restricted f data] applies the functions wrapped in [f] to
+        [data]. *)
+    let map_restricted f data =
+      match data with
+      | Int8 x -> Int8 (f.h x)
+      | UInt8 x -> UInt8 (f.h x)
+      | Int16 x -> Int16 (f.h x)
+      | UInt16 x -> UInt16 (f.h x)
+      | Int32 x -> Int32 (f.h x)
+      | Float32 x -> Float32 (f.h x)
+      | Float64 x -> Float64 (f.h x)
+
+    (** [dims data] returns an array holding the dimensions of [data]. *)
+    let dims data = apply { f = Genarray.dims } data
 
     (** [size_of_element data] returns the size in bytes of a single element
         from [data]. *)
-    let size_of_element data =
-      let f x = Genarray.size_of_element x in
-      match data with
-      | Int8 x -> f x
-      | UInt8 x -> f x
-      | Int16 x -> f x
-      | UInt16 x -> f x
-      | Int32 x -> f x
-      | Float32 x -> f x
-      | Float64 x -> f x
+    let size_of_element data = apply { f = Genarray.size_of_element } data
 
     (** [sub data initial_index length] returns a subsection of [data] of length
         [length] starting from [initial_index]. *)
     let sub data initial_index length =
-      let f x = Layout.sub x initial_index length in
-      match data with
-      | Int8 x -> Int8 (f x)
-      | UInt8 x -> UInt8 (f x)
-      | Int16 x -> Int16 (f x)
-      | UInt16 x -> UInt16 (f x)
-      | Int32 x -> Int32 (f x)
-      | Float32 x -> Float32 (f x)
-      | Float64 x -> Float64 (f x)
+      let h x = Layout.sub x initial_index length in
+      map_restricted { h } data
 
     (** [reshape data dims] works in exactly the same way as Bigarray.reshape *)
     let reshape data dims =
-      let f x = reshape x dims in
-      match data with
-      | Int8 x -> Int8 (f x)
-      | UInt8 x -> UInt8 (f x)
-      | Int16 x -> Int16 (f x)
-      | UInt16 x -> UInt16 (f x)
-      | Int32 x -> Int32 (f x)
-      | Float32 x -> Float32 (f x)
-      | Float64 x -> Float64 (f x)
+      let h x = reshape x dims in
+      map_restricted { h } data
 
     (** [slice data new_dimensions] returns a subarray of [data] with dimensions
         [new_dimensions]. *)
     let slice data new_dimensions =
-      let f x = Layout.slice x new_dimensions in
-      match data with
-      | Int8 x -> Int8 (f x)
-      | UInt8 x -> UInt8 (f x)
-      | Int16 x -> Int16 (f x)
-      | UInt16 x -> UInt16 (f x)
-      | Int32 x -> Int32 (f x)
-      | Float32 x -> Float32 (f x)
-      | Float64 x -> Float64 (f x)
+      let h x = Layout.slice x new_dimensions in
+      map_restricted { h } data
 
     (** [blit source dest] copies the data from [source] to [dest]. *)
     let blit source dest =
@@ -380,7 +386,7 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       | (Int32 x, Int32 y) -> f x y
       | (Float32 x, Float32 y) -> f x y
       | (Float64 x, Float64 y) -> f x y
-      | _ -> raise (BadDataType ("blit", ""))
+      | _ -> invalid_arg "blit"
 
     (** [get_* data which_datum] returns a single element from [data] at
         the location specified by the array [which_datum]. *)
@@ -391,20 +397,20 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       | UInt8 x -> f x
       | Int16 x -> f x
       | UInt16 x -> f x
-      | _ -> raise (BadDataType ("get_int", ""))
+      | _ -> invalid_arg "get_int"
 
     let get_int32 data which_datum =
       let f x = Genarray.get x which_datum in
       match data with
       | Int32 x -> f x
-      | _ -> raise (BadDataType ("get_int32", ""))
+      | _ -> invalid_arg "get_int32"
 
     let get_float data which_datum =
       let f x = Genarray.get x which_datum in
       match data with
       | Float32 x -> f x
       | Float64 x -> f x
-      | _ -> raise (BadDataType ("get_float", ""))
+      | _ -> invalid_arg "get_float"
 
     (** [set_* data which_datum value] sets a single element of [data] at
         the location specified by the array [which_datum] to [value]. *)
@@ -415,20 +421,20 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       | UInt8 x -> f x
       | Int16 x -> f x
       | UInt16 x -> f x
-      | _ -> raise (BadDataType ("set_int", ""))
+      | _ -> invalid_arg "set_int"
 
     let set_int32 data which_datum value =
       let f x = Genarray.set x which_datum value in
       match data with
       | Int32 x -> f x
-      | _ -> raise (BadDataType ("set_int32", ""))
+      | _ -> invalid_arg "set_int32"
 
     let set_float data which_datum value =
       let f x = Genarray.set x which_datum value in
       match data with
       | Float32 x -> f x
       | Float64 x -> f x
-      | _ -> raise (BadDataType ("set_float", ""))
+      | _ -> invalid_arg "set_float"
 
     (** {6 Convenience, Array-module-like functions} *)
 
@@ -445,18 +451,18 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       | UInt8 x -> Genarray.apply f x
       | Int16 x -> Genarray.apply f x
       | UInt16 x -> Genarray.apply f x
-      | _ -> raise (BadDataType ("apply_int", ""))
+      | _ -> invalid_arg "apply_int"
 
     let apply_int32 f data =
       match data with
       | Int32 x -> Genarray.apply f x
-      | _ -> raise (BadDataType ("apply_int32", ""))
+      | _ -> invalid_arg "apply_int32"
 
     let apply_float f data =
       match data with
       | Float32 x -> Genarray.apply f x
       | Float64 x -> Genarray.apply f x
-      | _ -> raise (BadDataType ("apply_float", ""))
+      | _ -> invalid_arg "apply_float"
 
     (** [map_* f kind b] applies [f] to every element of [b], returning the
         resulting values.  [b] is not changed. *)
@@ -466,18 +472,18 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       | UInt8 x -> Genarray.map f kind x
       | Int16 x -> Genarray.map f kind x
       | UInt16 x -> Genarray.map f kind x
-      | _ -> raise (BadDataType ("map_int", ""))
+      | _ -> invalid_arg "map_int"
 
     let map_int32 f kind data =
       match data with
       | Int32 x -> Genarray.map f kind x
-      | _ -> raise (BadDataType ("map_int32", ""))
+      | _ -> invalid_arg "map_int32"
 
     let map_float f kind data =
       match data with
       | Float32 x -> Genarray.map f kind x
       | Float64 x -> Genarray.map f kind x
-      | _ -> raise (BadDataType ("map_float", ""))
+      | _ -> invalid_arg "map_float"
 
     (** [fold_* f initial b]
         Like Array.fold_left and List.fold_left, but over an entire data set.
@@ -489,18 +495,18 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       | UInt8 x -> Genarray.fold f initial x
       | Int16 x -> Genarray.fold f initial x
       | UInt16 x -> Genarray.fold f initial x
-      | _ -> raise (BadDataType ("fold_int", ""))
+      | _ -> invalid_arg "fold_int"
 
     let fold_int32 f initial data =
       match data with
       | Int32 x -> Genarray.fold f initial x
-      | _ -> raise (BadDataType ("fold_int32", ""))
+      | _ -> invalid_arg "fold_int32"
 
     let fold_float f initial data =
       match data with
       | Float32 x -> Genarray.fold f initial x
       | Float64 x -> Genarray.fold f initial x
-      | _ -> raise (BadDataType ("fold_float", ""))
+      | _ -> invalid_arg "fold_float"
   end
 
   type hdf_vdata_pack_action_t =
