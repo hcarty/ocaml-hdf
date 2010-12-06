@@ -527,6 +527,8 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
     }
   end
 
+  module Smap = Map.Make(struct type t = string let compare = compare end)
+
   (** {6 HDF4 SDS interface} *)
   module Sd = struct
     open Hdf4
@@ -542,7 +544,7 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       (* The actual SDS contents *)
       data : Hdf4.t;
       (* Attributes associated with this SDS *)
-      attributes : Attribute.t array;
+      attributes : Hdf4.t Smap.t;
       (* Fill value for missing or unset values *)
       fill : fill_value_t option;
       (* What kind of data are these? *)
@@ -551,7 +553,7 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
 
     (** [make ?attributes ?fill name data] creates a {!t} from the given
         information. *)
-    let make ?(attributes = [||]) ?fill name data =
+    let make ?(attributes = Smap.empty) ?fill name data =
       {
         name = name;
         data = data;
@@ -625,41 +627,23 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
             Hdf4.create (Hdf4.hdf_datatype_to_mlvariant data_type) [|count|]
           in
           let f x = sd_readattr sds_id attr_index x in
+          apply { f } data;
           {
-            Attribute.name = name;
-            data =
-              let () =
-                match data with
-                | Hdf4.Int8 x -> f x
-                | Hdf4.UInt8 x -> f x
-                | Hdf4.Int16 x -> f x
-                | Hdf4.UInt16 x -> f x
-                | Hdf4.Int32 x -> f x
-                | Hdf4.Float32 x -> f x
-                | Hdf4.Float64 x -> f x
-              in
-              data
+            Attribute.name;
+            data;
           }
       )
 
     let write_attributes sds_id attrs =
-      Array.iter (
-        fun attr ->
+      Smap.iter (
+        fun name data ->
           let f x =
-            sd_setattr sds_id attr.Attribute.name
-              (Hdf4.mlvariant_to_hdf_datatype
-                (Hdf4._data_type_from_t attr.Attribute.data))
-              (Int32.of_int (Hdf4.elems attr.Attribute.data))
+            sd_setattr sds_id name
+              (Hdf4.mlvariant_to_hdf_datatype (Hdf4._data_type_from_t data))
+              (Int32.of_int (Hdf4.elems data))
               x
           in
-          match attr.Attribute.data with
-          | Hdf4.Int8 x -> f x
-          | Hdf4.UInt8 x -> f x
-          | Hdf4.Int16 x -> f x
-          | Hdf4.UInt16 x -> f x
-          | Hdf4.Int32 x -> f x
-          | Hdf4.Float32 x -> f x
-          | Hdf4.Float64 x -> f x
+          apply { f } data
       ) attrs
 
     (** [read_ga ?name ?index ?subset kind interface] -
@@ -723,6 +707,11 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
         | `float64 -> Float64 (f float64)
       in
       let attrs = wrap_sds_call read_attributes ?name ?index interface in
+      let attributes =
+        Array.enum attrs
+        |> Enum.map Attribute.(fun a -> a.name, a.data)
+        |> Smap.of_enum
+      in
       let fill =
         unless (Failure "Error getting SDS fill value.")
           (fun i -> read_fill ?name ?index i data)
@@ -730,19 +719,24 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       in
       {
         name = sds_name;
-        data = data;
-        attributes = attrs;
-        fill = fill;
-        data_type = data_type;
+        data;
+        attributes;
+        fill;
+        data_type;
       }
 
-    (** [read_all interface] returns an array of the SDS contents of
+    (** [read_all interface] returns a {!Smap.t} of the SDS contents of
         [interface]. *)
     let read_all interface =
       let (num_sds, _) = sd_fileinfo interface.sdid in
-      Array.init
-        (Int32.to_int num_sds)
-        (fun i -> read ~index:i interface)
+      let sds =
+        Array.init
+          (Int32.to_int num_sds)
+          (fun i -> read ~index:i interface)
+      in
+      Array.enum sds
+      |> Enum.map (fun s -> s.name, s)
+      |> Smap.of_enum
 
     let create interface data =
       match
@@ -790,16 +784,38 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
         name : string;
         order : int;
         data : Hdf4.t;
-        attributes : Attribute.t array;
+        attributes : Hdf4.t Smap.t;
       }
     end
 
     type t = {
       name : string;
-      fields : Field.t array;
-      attributes : Attribute.t array;
+      fields : Field.t Smap.t;
+      attributes : Hdf4.t Smap.t;
       vdata_class : string;
     }
+
+    (** [n_field_elements data] returns the number of elements in the fields
+        in [data].  If all of the fields in [data] are not the same length
+        then [Invalid_argument "Vdata field element count mismatch"] is
+        raised. *)
+    let n_field_elements fields =
+      let n_elements =
+        Smap.values fields
+        |> Enum.map (fun f -> Hdf4.elems f.Field.data)
+        |> List.of_enum
+      in
+      match n_elements with
+      | [] -> invalid_arg "Vdata has no fields"
+      | hd :: tl ->
+          if List.for_all (( = ) hd) tl then (
+            hd
+          )
+          else (
+            (* All fields in a Vdata entry need to have the same number of
+               elements *)
+            invalid_arg "Vdata field element count mismatch"
+          )
 
     (** All functions in this module will raise
         [Invalid_argument "Vdata is an attribute"] if one attempts to read a
@@ -820,57 +836,45 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
          itself. *)
       let field = field |? -1l in
       let num_attrs = vs_fnattrs vdata_id field in
-      Array.init num_attrs (
-        fun i ->
-          let (name, data_type, num_values, data_size) =
-            vs_attrinfo vdata_id field i
-          in
-          let data =
-            Hdf4.create (Hdf4.hdf_datatype_to_mlvariant data_type)
-              [|Int32.to_int num_values|]
-          in
-          let f x =
-            vs_getattr vdata_id (Int32.to_int field) (Int32.of_int i) x
-          in
-          {
-            Attribute.name = name;
-            data =
-              let () =
-                (* This actually loads the data *)
-                match data with
-                | Hdf4.Int8 x -> f x
-                | Hdf4.UInt8 x -> f x
-                | Hdf4.Int16 x -> f x
-                | Hdf4.UInt16 x -> f x
-                | Hdf4.Int32 x -> f x
-                | Hdf4.Float32 x -> f x
-                | Hdf4.Float64 x -> f x
-              in
-              data
-          }
-      )
+      let attributes =
+        Array.init num_attrs (
+          fun i ->
+            let (name, data_type, num_values, data_size) =
+              vs_attrinfo vdata_id field i
+            in
+            let data =
+              Hdf4.create (Hdf4.hdf_datatype_to_mlvariant data_type)
+                [|Int32.to_int num_values|]
+            in
+            let f x =
+              vs_getattr vdata_id (Int32.to_int field) (Int32.of_int i) x
+            in
+            (* This actually loads the data *)
+            apply { f } data;
+            {
+              Attribute.name;
+              data;
+            }
+        )
+      in
+      Array.enum attributes
+      |> Enum.map Attribute.(fun a -> a.name, a.data)
+      |> Smap.of_enum
 
     (** [write_attributes ?field vdata_id attrs] adds the data in [attrs] as
         atributes for the Vdata entry associated with [vdata_id]. *)
     let write_attributes ?field vdata_id attrs =
       let field = Int32.of_int (field |? -1) in
-      Array.iter (
-        fun attr ->
+      Smap.iter (
+        fun name data ->
           let f x =
-            vs_setattr vdata_id field attr.Attribute.name
+            vs_setattr vdata_id field name
               (Hdf4.mlvariant_to_hdf_datatype
-                (Hdf4._data_type_from_t attr.Attribute.data))
-              (Int32.of_int (Hdf4.elems attr.Attribute.data))
+                (Hdf4._data_type_from_t data))
+              (Int32.of_int (Hdf4.elems data))
               x
           in
-          match attr.Attribute.data with
-          | Hdf4.Int8 x -> f x
-          | Hdf4.UInt8 x -> f x
-          | Hdf4.Int16 x -> f x
-          | Hdf4.UInt16 x -> f x
-          | Hdf4.Int32 x -> f x
-          | Hdf4.Float32 x -> f x
-          | Hdf4.Float64 x -> f x
+          apply { f } data;
       ) attrs
 
     (** Tests to see if the given Vdata or Vgroup class or name is a reserved
@@ -911,10 +915,10 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
         | Float64 x -> f x
       );
       {
-        Field.name = name;
-        order = order;
-        data = data;
-        attributes = attributes;
+        Field.name;
+        order;
+        data;
+        attributes;
       }
 
     (** [read_fields vdata_id] will return all of the fields associated with the
@@ -951,7 +955,9 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       vs_fpack vdata_id HDF_VSUNPACK
         field_names data_buffer total_bytes (Int32.to_int n_records)
         field_names field_data;
-      fields
+      Array.enum fields
+      |> Enum.map Field.(fun f -> f.name, f)
+      |> Smap.of_enum
 
     let read_by_id vdata_id =
       (* This check is needed to make sure that we are not attempting to read some
@@ -1025,32 +1031,38 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
         order as those in [interface]. *)
     let read_all interface =
       Array.filter_map identity (map read_by_id interface)
+      |> Array.enum
+      |> Enum.map (fun v -> v.name, v)
+      |> Smap.of_enum
 
     (** For internal use.  This packs multiple fields in to one lump of bytes,
         ready for ingestion by vs_write. *)
     let pack_fields vdata_id fields =
       (* Extract just the field data *)
-      let field_data = Array.map (fun f -> f.Field.data) fields in
+      let field_data =
+        Enum.map (fun f -> f.Field.data) (Smap.values fields)
+        |> Array.of_enum
+      in
       (* Total size, in bytes, of the Vdata fields *)
       let total_bytes =
         let byte_sizes =
-          Array.map (
+          Enum.map (
             fun field ->
               Hdf4.elems field.Field.data *
               Hdf4.size_of_element field.Field.data
               (* No need to multiply by the order or n_records as that information
                  is carried in the number of elements in the data. *)
-          ) fields
+          ) (Smap.values fields)
         in
-        Array.reduce ( + ) byte_sizes
+        Enum.reduce ( + ) byte_sizes
       in
 
       let field_names =
-        let names = Array.map (fun f -> f.Field.name) fields in
-        String.concat "," (Array.to_list names)
+        let names = Enum.map (fun f -> f.Field.name) (Smap.values fields) in
+        String.concat "," (List.of_enum names)
       in
 
-      let n_records = Hdf4.elems fields.(0).Field.data in
+      let n_records = n_field_elements fields in
 
       (* Pack all of the data in to a single, HDF-ready buffer *)
       let data_buffer =
@@ -1067,22 +1079,20 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       let vdata_id = vs_attach interface.fid (-1l) "w" in
       (* Make a Vdata-ready, comma-delimited string of the field names *)
       let field_names =
-        let names =
-          Array.to_list (Array.map (fun x -> x.Field.name) data.fields)
-        in
+        let names = List.of_enum (Smap.keys data.fields) in
         String.concat "," names
       in
 
       (* Define each field in the Vdata *)
-      Array.iteri (
-        fun i field ->
+      Enum.iteri (
+        fun i (name, field) ->
           let field_type = Hdf4._hdf_type_from_t field.Field.data in
           (* Define the field *)
           vs_fdefine vdata_id
             field.Field.name field_type (Int32.of_int field.Field.order);
           (* Write out the attributes for this field *)
           write_attributes ~field:i vdata_id field.Field.attributes;
-      ) data.fields;
+      ) (Smap.enum data.fields);
 
       (* Set some metadata *)
       vs_setname vdata_id data.name;
@@ -1090,7 +1100,7 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       vs_setfields vdata_id field_names;
 
       (* Write the main Vdata *)
-      let n_elements = Hdf4.elems data.fields.(0).Field.data in
+      let n_elements = n_field_elements data.fields in
       let packed_fields = pack_fields vdata_id data.fields in
       vs_write vdata_id packed_fields (Int32.of_int n_elements)
         HDF_FULL_INTERLACE;
