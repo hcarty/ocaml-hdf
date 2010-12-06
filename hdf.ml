@@ -37,6 +37,9 @@ let unless except f x =
     [a]. *)
 let ( |? ) a b = Option.default b a
 
+(** String maps, for use elsewhere in the module *)
+module Smap = Map.Make(struct type t = string let compare = compare end)
+
 (** This allows the {!Hdf4} module to use either Fortran-style or C-style
     Bigarrays for data storage. *)
 module type HDF4_LAYOUT_TYPE = sig
@@ -526,8 +529,6 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
       data : Hdf4.t;
     }
   end
-
-  module Smap = Map.Make(struct type t = string let compare = compare end)
 
   (** {6 HDF4 SDS interface} *)
   module Sd = struct
