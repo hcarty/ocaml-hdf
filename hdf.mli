@@ -1,3 +1,4 @@
+module Smap : Batteries.Map.S with type key = string
 module type HDF4_LAYOUT_TYPE =
   sig
     type t
@@ -526,7 +527,6 @@ module Make :
               | `int8
               | `uint16
               | `uint8 ]
-          exception BadDataType of string * string
           exception HdfError of string
           module Private :
             sig
@@ -678,12 +678,12 @@ module Make :
           type t = {
             name : string;
             data : Hdf4.t;
-            attributes : Attribute.t array;
+            attributes : Hdf4.t Smap.t;
             fill : fill_value_t option;
             data_type : Hdf4.data_t;
           }
           val make :
-            ?attributes:Attribute.t array ->
+            ?attributes:Hdf4.t Smap.t ->
             ?fill:fill_value_t -> string -> Hdf4.t -> t
           val select : ?name:string -> ?index:int -> Hdf4.interface -> int32
           val info : int32 -> string * int array * Hdf4.data_t * int
@@ -695,7 +695,7 @@ module Make :
             ?index:int -> Hdf4.interface -> Hdf4.t -> fill_value_t
           val write_fill : int32 -> fill_value_t -> unit
           val read_attributes : int32 -> Attribute.t array
-          val write_attributes : int32 -> Attribute.t array -> unit
+          val write_attributes : int32 -> Hdf4.t Smap.t -> unit
           val read_ga :
             ?name:string ->
             ?index:int ->
@@ -706,7 +706,7 @@ module Make :
             ?name:string ->
             ?index:int ->
             ?subset:(int * int) option list -> Hdf4.interface -> t
-          val read_all : Hdf4.interface -> t array
+          val read_all : Hdf4.interface -> t Smap.t
           val create : Hdf4.interface -> t -> int32
           val write_data : int32 -> Hdf4.t -> unit
           val write : Hdf4.interface -> t -> unit
@@ -719,31 +719,30 @@ module Make :
                 name : string;
                 order : int;
                 data : Hdf4.t;
-                attributes : Attribute.t array;
+                attributes : Hdf4.t Smap.t;
               }
             end
           type t = {
             name : string;
-            fields : Field.t array;
-            attributes : Attribute.t array;
+            fields : Field.t Smap.t;
+            attributes : Hdf4.t Smap.t;
             vdata_class : string;
           }
           val check_attribute : int32 -> unit
-          val read_attributes : ?field:int32 -> int32 -> Attribute.t array
-          val write_attributes :
-            ?field:int -> int32 -> Attribute.t array -> unit
+          val read_attributes : ?field:int32 -> int32 -> Hdf4.t Smap.t
+          val write_attributes : ?field:int -> int32 -> Hdf4.t Smap.t -> unit
           external is_reserved_name : string -> bool = "ml_is_reserved_name"
           val is_special : int32 -> bool
           val make_field : ?init:bool -> int32 -> string -> Field.t
-          val read_fields : int32 -> Field.t Batteries.Array.mappable
+          val read_fields : int32 -> Field.t Smap.t
           val read_by_id : int32 -> t option
           val ref_from_index : Hdf4.interface -> int -> int32
           val read : ?name:string -> ?index:int -> Hdf4.interface -> t
           val map : (int32 -> 'a) -> Hdf4.interface -> 'a array
-          val read_all : Hdf4.interface -> t array
+          val read_all : Hdf4.interface -> t Smap.t
           val pack_fields :
             int32 ->
-            Field.t Batteries.Array.mappable ->
+            Field.t Smap.t ->
             (int, Batteries.Bigarray.int8_unsigned_elt, Layout.t)
             ExtBigarray.Genarray.t
           val write : Hdf4.interface -> t -> unit
@@ -761,7 +760,6 @@ module C :
             | `int8
             | `uint16
             | `uint8 ]
-        exception BadDataType of string * string
         exception HdfError of string
         module Private :
           sig
@@ -929,12 +927,12 @@ module C :
           Make(C_layout).Sd.t = {
           name : string;
           data : Hdf4.t;
-          attributes : Attribute.t array;
+          attributes : Hdf4.t Smap.t;
           fill : fill_value_t option;
           data_type : Hdf4.data_t;
         }
         val make :
-          ?attributes:Attribute.t array ->
+          ?attributes:Hdf4.t Smap.t ->
           ?fill:fill_value_t -> string -> Hdf4.t -> t
         val select : ?name:string -> ?index:int -> Hdf4.interface -> int32
         val info : int32 -> string * int array * Hdf4.data_t * int
@@ -945,7 +943,7 @@ module C :
           ?index:int -> Hdf4.interface -> Hdf4.t -> fill_value_t
         val write_fill : int32 -> fill_value_t -> unit
         val read_attributes : int32 -> Attribute.t array
-        val write_attributes : int32 -> Attribute.t array -> unit
+        val write_attributes : int32 -> Hdf4.t Smap.t -> unit
         val read_ga :
           ?name:string ->
           ?index:int ->
@@ -956,7 +954,7 @@ module C :
           ?name:string ->
           ?index:int ->
           ?subset:(int * int) option list -> Hdf4.interface -> t
-        val read_all : Hdf4.interface -> t array
+        val read_all : Hdf4.interface -> t Smap.t
         val create : Hdf4.interface -> t -> int32
         val write_data : int32 -> Hdf4.t -> unit
         val write : Hdf4.interface -> t -> unit
@@ -970,32 +968,31 @@ module C :
               name : string;
               order : int;
               data : Hdf4.t;
-              attributes : Attribute.t array;
+              attributes : Hdf4.t Smap.t;
             }
           end
         type t =
           Make(C_layout).Vdata.t = {
           name : string;
-          fields : Field.t array;
-          attributes : Attribute.t array;
+          fields : Field.t Smap.t;
+          attributes : Hdf4.t Smap.t;
           vdata_class : string;
         }
         val check_attribute : int32 -> unit
-        val read_attributes : ?field:int32 -> int32 -> Attribute.t array
-        val write_attributes :
-          ?field:int -> int32 -> Attribute.t array -> unit
+        val read_attributes : ?field:int32 -> int32 -> Hdf4.t Smap.t
+        val write_attributes : ?field:int -> int32 -> Hdf4.t Smap.t -> unit
         external is_reserved_name : string -> bool = "ml_is_reserved_name"
         val is_special : int32 -> bool
         val make_field : ?init:bool -> int32 -> string -> Field.t
-        val read_fields : int32 -> Field.t Batteries.Array.mappable
+        val read_fields : int32 -> Field.t Smap.t
         val read_by_id : int32 -> t option
         val ref_from_index : Hdf4.interface -> int -> int32
         val read : ?name:string -> ?index:int -> Hdf4.interface -> t
         val map : (int32 -> 'a) -> Hdf4.interface -> 'a array
-        val read_all : Hdf4.interface -> t array
+        val read_all : Hdf4.interface -> t Smap.t
         val pack_fields :
           int32 ->
-          Field.t Batteries.Array.mappable ->
+          Field.t Smap.t ->
           (int, Batteries.Bigarray.int8_unsigned_elt, C_layout.t)
           ExtBigarray.Genarray.t
         val write : Hdf4.interface -> t -> unit
@@ -1013,7 +1010,6 @@ module Fortran :
             | `int8
             | `uint16
             | `uint8 ]
-        exception BadDataType of string * string
         exception HdfError of string
         module Private :
           sig
@@ -1181,12 +1177,12 @@ module Fortran :
           Make(Fortran_layout).Sd.t = {
           name : string;
           data : Hdf4.t;
-          attributes : Attribute.t array;
+          attributes : Hdf4.t Smap.t;
           fill : fill_value_t option;
           data_type : Hdf4.data_t;
         }
         val make :
-          ?attributes:Attribute.t array ->
+          ?attributes:Hdf4.t Smap.t ->
           ?fill:fill_value_t -> string -> Hdf4.t -> t
         val select : ?name:string -> ?index:int -> Hdf4.interface -> int32
         val info : int32 -> string * int array * Hdf4.data_t * int
@@ -1197,7 +1193,7 @@ module Fortran :
           ?index:int -> Hdf4.interface -> Hdf4.t -> fill_value_t
         val write_fill : int32 -> fill_value_t -> unit
         val read_attributes : int32 -> Attribute.t array
-        val write_attributes : int32 -> Attribute.t array -> unit
+        val write_attributes : int32 -> Hdf4.t Smap.t -> unit
         val read_ga :
           ?name:string ->
           ?index:int ->
@@ -1208,7 +1204,7 @@ module Fortran :
           ?name:string ->
           ?index:int ->
           ?subset:(int * int) option list -> Hdf4.interface -> t
-        val read_all : Hdf4.interface -> t array
+        val read_all : Hdf4.interface -> t Smap.t
         val create : Hdf4.interface -> t -> int32
         val write_data : int32 -> Hdf4.t -> unit
         val write : Hdf4.interface -> t -> unit
@@ -1222,32 +1218,31 @@ module Fortran :
               name : string;
               order : int;
               data : Hdf4.t;
-              attributes : Attribute.t array;
+              attributes : Hdf4.t Smap.t;
             }
           end
         type t =
           Make(Fortran_layout).Vdata.t = {
           name : string;
-          fields : Field.t array;
-          attributes : Attribute.t array;
+          fields : Field.t Smap.t;
+          attributes : Hdf4.t Smap.t;
           vdata_class : string;
         }
         val check_attribute : int32 -> unit
-        val read_attributes : ?field:int32 -> int32 -> Attribute.t array
-        val write_attributes :
-          ?field:int -> int32 -> Attribute.t array -> unit
+        val read_attributes : ?field:int32 -> int32 -> Hdf4.t Smap.t
+        val write_attributes : ?field:int -> int32 -> Hdf4.t Smap.t -> unit
         external is_reserved_name : string -> bool = "ml_is_reserved_name"
         val is_special : int32 -> bool
         val make_field : ?init:bool -> int32 -> string -> Field.t
-        val read_fields : int32 -> Field.t Batteries.Array.mappable
+        val read_fields : int32 -> Field.t Smap.t
         val read_by_id : int32 -> t option
         val ref_from_index : Hdf4.interface -> int -> int32
         val read : ?name:string -> ?index:int -> Hdf4.interface -> t
         val map : (int32 -> 'a) -> Hdf4.interface -> 'a array
-        val read_all : Hdf4.interface -> t array
+        val read_all : Hdf4.interface -> t Smap.t
         val pack_fields :
           int32 ->
-          Field.t Batteries.Array.mappable ->
+          Field.t Smap.t ->
           (int, Batteries.Bigarray.int8_unsigned_elt, Fortran_layout.t)
           ExtBigarray.Genarray.t
         val write : Hdf4.interface -> t -> unit
