@@ -37,9 +37,6 @@ let unless except f x =
     [a]. *)
 let ( |? ) a b = Option.default b a
 
-(** String maps, for use elsewhere in the module *)
-module Smap = Map.Make(struct type t = string let compare = compare end)
-
 (** This allows the {!Hdf4} module to use either Fortran-style or C-style
     Bigarrays for data storage. *)
 module type HDF4_LAYOUT_TYPE = sig
@@ -128,7 +125,7 @@ end
 
 (** A complete set of HDF4 modules, parameterized by the underlying
     Bigarray layout (C or Fortran). *)
-module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
+module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Map.S with type key = string) -> struct
   open Hdf4_low_level
 
   (** {6 Higher Level Functions} *)
@@ -524,18 +521,21 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
     = "ml_VSfpack_bytecode" "ml_VSfpack"
 
   module Attribute = struct
-    type t = {
-      name : string;
-      data : Hdf4.t;
-    }
+    type t = Hdf4.t
 
-    let make name data = {
-      name = name;
-      data = data;
-    }
+    (** [to_* a] convert [a] to an appropriately typed OCaml array. *)
+    let to_int a =
+      Array1.to_array (array1_of_genarray (Hdf4.map_int identity int a))
+    let to_int32 a =
+      Array1.to_array (array1_of_genarray (Hdf4.map_int32 identity int32 a))
+    let to_float a =
+      Array1.to_array (array1_of_genarray (Hdf4.map_float identity float64 a))
 
-    let data a f =
-      array1_of_genarray (f a.data)
+    (** [get_* a] gets the first value from [a].  Mostly useful when [a] is an
+        attribute with only a single value. *)
+    let get_int a = Hdf4.get_int a [|0|]
+    let get_int32 a = Hdf4.get_int32 a [|0|]
+    let get_float a = Hdf4.get_float a [|0|]
   end
 
   (** {6 HDF4 SDS interface} *)
@@ -637,11 +637,10 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
           in
           let f x = sd_readattr sds_id attr_index x in
           apply { f } data;
-          {
-            Attribute.name;
-            data;
-          }
+          name, data
       )
+      |> Array.enum
+      |> Smap.of_enum
 
     let write_attributes sds_id attrs =
       Smap.iter (
@@ -715,12 +714,7 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
         | `float32 -> Float32 (f float32)
         | `float64 -> Float64 (f float64)
       in
-      let attrs = wrap_sds_call read_attributes ?name ?index interface in
-      let attributes =
-        Array.enum attrs
-        |> Enum.map Attribute.(fun a -> a.name, a.data)
-        |> Smap.of_enum
-      in
+      let attributes = wrap_sds_call read_attributes ?name ?index interface in
       let fill =
         unless (Failure "Error getting SDS fill value.")
           (fun i -> read_fill ?name ?index i data)
@@ -860,14 +854,10 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> struct
             in
             (* This actually loads the data *)
             apply { f } data;
-            {
-              Attribute.name;
-              data;
-            }
+            name, data
         )
       in
       Array.enum attributes
-      |> Enum.map Attribute.(fun a -> a.name, a.data)
       |> Smap.of_enum
 
     (** [write_attributes ?field vdata_id attrs] adds the data in [attrs] as
