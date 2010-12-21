@@ -123,9 +123,21 @@ module Hdf4_low_level = struct
     (name, rank, Array.sub dimsizes 0 (Int32.to_int rank), data_type, num_attrs)
 end
 
+module type Mappable = sig
+  type key
+  type 'a t
+
+  val empty : 'a t
+  val enum : 'a t -> (key * 'a) Enum.t
+  val of_enum : (key * 'a) Enum.t -> 'a t
+  val iter : (key -> 'a -> unit) -> 'a t -> unit
+  val keys : 'a t -> key Enum.t
+  val values : 'a t -> 'a Enum.t
+end
+
 (** A complete set of HDF4 modules, parameterized by the underlying
     Bigarray layout (C or Fortran). *)
-module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Map.S with type key = string) -> struct
+module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable with type key = string) -> struct
   open Hdf4_low_level
 
   (** {6 Higher Level Functions} *)

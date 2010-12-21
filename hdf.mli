@@ -513,9 +513,20 @@ module Hdf4_low_level :
       = "ml_SDsetfillvalue_int32"
     val sd_getinfo : int32 -> string * int32 * int32 array * int32 * int32
   end
+module type Mappable = sig
+  type key
+  type 'a t
+
+  val empty : 'a t
+  val enum : 'a t -> (key * 'a) Batteries.Enum.t
+  val of_enum : (key * 'a) Batteries.Enum.t -> 'a t
+  val iter : (key -> 'a -> unit) -> 'a t -> unit
+  val keys : 'a t -> key Batteries.Enum.t
+  val values : 'a t -> 'a Batteries.Enum.t
+end
 module Make :
   functor (Layout : HDF4_LAYOUT_TYPE) ->
-    functor (Smap : Batteries.Map.S with type key = string) ->
+    functor (Smap : Mappable with type key = string) ->
       sig
         module Hdf4 :
           sig
