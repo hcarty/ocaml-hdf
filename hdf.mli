@@ -769,7 +769,7 @@ module Make :
           end
       end
 module C :
-  functor (Smap : Batteries.Map.S with type key = string) ->
+  functor (Smap : Mappable with type key = string) ->
     sig
       module Hdf4 :
         sig
@@ -1022,7 +1022,7 @@ module C :
         end
     end
 module Fortran :
-  functor (Smap : Batteries.Map.S with type key = string) ->
+  functor (Smap : Mappable with type key = string) ->
     sig
       module Hdf4 :
         sig
