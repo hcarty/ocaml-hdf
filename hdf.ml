@@ -459,21 +459,21 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
         place. *)
     let apply_int f data =
       match data with
-      | Int8 x -> Genarray.apply f x
-      | UInt8 x -> Genarray.apply f x
-      | Int16 x -> Genarray.apply f x
-      | UInt16 x -> Genarray.apply f x
+      | Int8 x -> Genarray.modify f x
+      | UInt8 x -> Genarray.modify f x
+      | Int16 x -> Genarray.modify f x
+      | UInt16 x -> Genarray.modify f x
       | _ -> invalid_arg "apply_int"
 
     let apply_int32 f data =
       match data with
-      | Int32 x -> Genarray.apply f x
+      | Int32 x -> Genarray.modify f x
       | _ -> invalid_arg "apply_int32"
 
     let apply_float f data =
       match data with
-      | Float32 x -> Genarray.apply f x
-      | Float64 x -> Genarray.apply f x
+      | Float32 x -> Genarray.modify f x
+      | Float64 x -> Genarray.modify f x
       | _ -> invalid_arg "apply_float"
 
     (** [map_* f kind b] applies [f] to every element of [b], returning the
