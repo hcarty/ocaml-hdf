@@ -1,13 +1,13 @@
 module type HDF4_LAYOUT_TYPE =
   sig
     type t
-    val layout : t Batteries.Bigarray.layout
+    val layout : t Bigarray.layout
     val sub :
-      ('a, 'b, t) ExtBigarray.Genarray.t ->
-      int -> int -> ('a, 'b, t) ExtBigarray.Genarray.t
+      ('a, 'b, t) Bigarray.Genarray.t ->
+      int -> int -> ('a, 'b, t) Bigarray.Genarray.t
     val slice :
-      ('a, 'b, t) ExtBigarray.Genarray.t ->
-      int array -> ('a, 'b, t) ExtBigarray.Genarray.t
+      ('a, 'b, t) Bigarray.Genarray.t ->
+      int array -> ('a, 'b, t) Bigarray.Genarray.t
   end
 module C_layout : HDF4_LAYOUT_TYPE with type t = Bigarray.c_layout
 module Fortran_layout : HDF4_LAYOUT_TYPE with type t = Bigarray.fortran_layout
@@ -468,37 +468,37 @@ module Hdf4_low_level :
     type hdf_vdata_interlace_t = HDF_NO_INTERLACE | HDF_FULL_INTERLACE
     external vs_write :
       int32 ->
-      ('a, 'b, 'c) Batteries.Bigarray.Genarray.t ->
+      ('a, 'b, 'c) Bigarray.Genarray.t ->
       int32 -> hdf_vdata_interlace_t -> unit = "ml_VSwrite"
     external vs_read :
       int32 ->
-      ('a, 'b, 'c) Batteries.Bigarray.Genarray.t ->
+      ('a, 'b, 'c) Bigarray.Genarray.t ->
       int32 -> hdf_vdata_interlace_t -> unit = "ml_VSread"
     external sd_writedata :
-      int32 -> ('a, 'b, 'c) Batteries.Bigarray.Genarray.t -> unit
+      int32 -> ('a, 'b, 'c) Bigarray.Genarray.t -> unit
       = "ml_SDwritedata"
     external sd_readdata :
       int32 ->
       int32 array ->
-      int32 array -> ('a, 'b, 'c) Batteries.Bigarray.Genarray.t -> unit
+      int32 array -> ('a, 'b, 'c) Bigarray.Genarray.t -> unit
       = "ml_SDreaddata"
     external sd_readattr :
-      int32 -> int32 -> ('a, 'b, 'c) Batteries.Bigarray.Genarray.t -> unit
+      int32 -> int32 -> ('a, 'b, 'c) Bigarray.Genarray.t -> unit
       = "ml_SDreadattr"
     external sd_setattr :
       int32 ->
       string ->
-      int32 -> int32 -> ('a, 'b, 'c) Batteries.Bigarray.Genarray.t -> unit
+      int32 -> int32 -> ('a, 'b, 'c) Bigarray.Genarray.t -> unit
       = "ml_SDsetattr"
     external vs_getattr :
       int32 ->
-      int -> int32 -> ('a, 'b, 'c) Batteries.Bigarray.Genarray.t -> unit
+      int -> int32 -> ('a, 'b, 'c) Bigarray.Genarray.t -> unit
       = "ml_VSgetattr"
     external vs_setattr :
       int32 ->
       int32 ->
       string ->
-      int32 -> int32 -> ('a, 'b, 'c) Batteries.Bigarray.Genarray.t -> unit
+      int32 -> int32 -> ('a, 'b, 'c) Bigarray.Genarray.t -> unit
       = "ml_VSsetattr_bytecode" "ml_VSsetattr"
     external sd_getfillvalue_float : int32 -> float
       = "ml_SDgetfillvalue_float"
@@ -558,76 +558,76 @@ module Make :
               (interface -> 'a) -> string -> 'a
             type t =
                 Int8 of
-                  (int, Batteries.Bigarray.int8_signed_elt, Layout.t)
-                  ExtBigarray.Genarray.t
+                  (int, Bigarray.int8_signed_elt, Layout.t)
+                  Bigarray.Genarray.t
               | UInt8 of
-                  (int, Batteries.Bigarray.int8_unsigned_elt, Layout.t)
-                  ExtBigarray.Genarray.t
+                  (int, Bigarray.int8_unsigned_elt, Layout.t)
+                  Bigarray.Genarray.t
               | Int16 of
-                  (int, Batteries.Bigarray.int16_signed_elt, Layout.t)
-                  ExtBigarray.Genarray.t
+                  (int, Bigarray.int16_signed_elt, Layout.t)
+                  Bigarray.Genarray.t
               | UInt16 of
-                  (int, Batteries.Bigarray.int16_unsigned_elt, Layout.t)
-                  ExtBigarray.Genarray.t
+                  (int, Bigarray.int16_unsigned_elt, Layout.t)
+                  Bigarray.Genarray.t
               | Int32 of
-                  (int32, Batteries.Bigarray.int32_elt, Layout.t)
-                  ExtBigarray.Genarray.t
+                  (int32, Bigarray.int32_elt, Layout.t)
+                  Bigarray.Genarray.t
               | Float32 of
-                  (float, Batteries.Bigarray.float32_elt, Layout.t)
-                  ExtBigarray.Genarray.t
+                  (float, Bigarray.float32_elt, Layout.t)
+                  Bigarray.Genarray.t
               | Float64 of
-                  (float, Batteries.Bigarray.float64_elt, Layout.t)
-                  ExtBigarray.Genarray.t
+                  (float, Bigarray.float64_elt, Layout.t)
+                  Bigarray.Genarray.t
             val create : data_t -> int array -> t
             val to_int8 :
               t ->
-              (int, Batteries.Bigarray.int8_signed_elt, Layout.t)
-              ExtBigarray.Genarray.t
+              (int, Bigarray.int8_signed_elt, Layout.t)
+              Bigarray.Genarray.t
             val to_uint8 :
               t ->
-              (int, Batteries.Bigarray.int8_unsigned_elt, Layout.t)
-              ExtBigarray.Genarray.t
+              (int, Bigarray.int8_unsigned_elt, Layout.t)
+              Bigarray.Genarray.t
             val to_int16 :
               t ->
-              (int, Batteries.Bigarray.int16_signed_elt, Layout.t)
-              ExtBigarray.Genarray.t
+              (int, Bigarray.int16_signed_elt, Layout.t)
+              Bigarray.Genarray.t
             val to_uint16 :
               t ->
-              (int, Batteries.Bigarray.int16_unsigned_elt, Layout.t)
-              ExtBigarray.Genarray.t
+              (int, Bigarray.int16_unsigned_elt, Layout.t)
+              Bigarray.Genarray.t
             val to_int32 :
               t ->
-              (int32, Batteries.Bigarray.int32_elt, Layout.t)
-              ExtBigarray.Genarray.t
+              (int32, Bigarray.int32_elt, Layout.t)
+              Bigarray.Genarray.t
             val to_float32 :
               t ->
-              (float, Batteries.Bigarray.float32_elt, Layout.t)
-              ExtBigarray.Genarray.t
+              (float, Bigarray.float32_elt, Layout.t)
+              Bigarray.Genarray.t
             val to_float64 :
               t ->
-              (float, Batteries.Bigarray.float64_elt, Layout.t)
-              ExtBigarray.Genarray.t
+              (float, Bigarray.float64_elt, Layout.t)
+              Bigarray.Genarray.t
             val of_int8 :
-              (int, Batteries.Bigarray.int8_signed_elt, Layout.t)
-              ExtBigarray.Genarray.t -> t
+              (int, Bigarray.int8_signed_elt, Layout.t)
+              Bigarray.Genarray.t -> t
             val of_uint8 :
-              (int, Batteries.Bigarray.int8_unsigned_elt, Layout.t)
-              ExtBigarray.Genarray.t -> t
+              (int, Bigarray.int8_unsigned_elt, Layout.t)
+              Bigarray.Genarray.t -> t
             val of_int16 :
-              (int, Batteries.Bigarray.int16_signed_elt, Layout.t)
-              ExtBigarray.Genarray.t -> t
+              (int, Bigarray.int16_signed_elt, Layout.t)
+              Bigarray.Genarray.t -> t
             val of_uint16 :
-              (int, Batteries.Bigarray.int16_unsigned_elt, Layout.t)
-              ExtBigarray.Genarray.t -> t
+              (int, Bigarray.int16_unsigned_elt, Layout.t)
+              Bigarray.Genarray.t -> t
             val of_int32 :
-              (int32, Batteries.Bigarray.int32_elt, Layout.t)
-              ExtBigarray.Genarray.t -> t
+              (int32, Bigarray.int32_elt, Layout.t)
+              Bigarray.Genarray.t -> t
             val of_float32 :
-              (float, Batteries.Bigarray.float32_elt, Layout.t)
-              ExtBigarray.Genarray.t -> t
+              (float, Bigarray.float32_elt, Layout.t)
+              Bigarray.Genarray.t -> t
             val of_float64 :
-              (float, Batteries.Bigarray.float64_elt, Layout.t)
-              ExtBigarray.Genarray.t -> t
+              (float, Bigarray.float64_elt, Layout.t)
+              Bigarray.Genarray.t -> t
             val is_hdf : string -> bool
             external hdf_datatype_to_mlvariant : int32 -> data_t
               = "hdf_datatype_to_mlvariant"
@@ -675,8 +675,8 @@ module Make :
           int32 ->
           hdf_vdata_pack_action_t ->
           string ->
-          (int, Batteries.Bigarray.int8_unsigned_elt, Layout.t)
-          Batteries.Bigarray.Genarray.t ->
+          (int, Bigarray.int8_unsigned_elt, Layout.t)
+          Bigarray.Genarray.t ->
           int -> int -> string -> Hdf4.t array -> unit = "ml_VSfpack_bytecode"
           "ml_VSfpack"
         module Attribute :
@@ -721,7 +721,7 @@ module Make :
               ?index:int ->
               ?subset:(int * int) option list ->
               ('a, 'b) Bigarray.kind ->
-              Hdf4.interface -> ('a, 'b, Layout.t) ExtBigarray.Genarray.t
+              Hdf4.interface -> ('a, 'b, Layout.t) Bigarray.Genarray.t
             val read :
               ?name:string ->
               ?index:int ->
@@ -763,8 +763,8 @@ module Make :
             val pack_fields :
               int32 ->
               Field.t Smap.t ->
-              (int, Batteries.Bigarray.int8_unsigned_elt, Layout.t)
-              ExtBigarray.Genarray.t
+              (int, Bigarray.int8_unsigned_elt, Layout.t)
+              Bigarray.Genarray.t
             val write : Hdf4.interface -> t -> unit
           end
       end
@@ -806,76 +806,76 @@ module C :
           type t =
             Make(C_layout)(Smap).Hdf4.t =
               Int8 of
-                (int, Batteries.Bigarray.int8_signed_elt, C_layout.t)
-                ExtBigarray.Genarray.t
+                (int, Bigarray.int8_signed_elt, C_layout.t)
+                Bigarray.Genarray.t
             | UInt8 of
-                (int, Batteries.Bigarray.int8_unsigned_elt, C_layout.t)
-                ExtBigarray.Genarray.t
+                (int, Bigarray.int8_unsigned_elt, C_layout.t)
+                Bigarray.Genarray.t
             | Int16 of
-                (int, Batteries.Bigarray.int16_signed_elt, C_layout.t)
-                ExtBigarray.Genarray.t
+                (int, Bigarray.int16_signed_elt, C_layout.t)
+                Bigarray.Genarray.t
             | UInt16 of
-                (int, Batteries.Bigarray.int16_unsigned_elt, C_layout.t)
-                ExtBigarray.Genarray.t
+                (int, Bigarray.int16_unsigned_elt, C_layout.t)
+                Bigarray.Genarray.t
             | Int32 of
-                (int32, Batteries.Bigarray.int32_elt, C_layout.t)
-                ExtBigarray.Genarray.t
+                (int32, Bigarray.int32_elt, C_layout.t)
+                Bigarray.Genarray.t
             | Float32 of
-                (float, Batteries.Bigarray.float32_elt, C_layout.t)
-                ExtBigarray.Genarray.t
+                (float, Bigarray.float32_elt, C_layout.t)
+                Bigarray.Genarray.t
             | Float64 of
-                (float, Batteries.Bigarray.float64_elt, C_layout.t)
-                ExtBigarray.Genarray.t
+                (float, Bigarray.float64_elt, C_layout.t)
+                Bigarray.Genarray.t
           val create : data_t -> int array -> t
           val to_int8 :
             t ->
-            (int, Batteries.Bigarray.int8_signed_elt, C_layout.t)
-            ExtBigarray.Genarray.t
+            (int, Bigarray.int8_signed_elt, C_layout.t)
+            Bigarray.Genarray.t
           val to_uint8 :
             t ->
-            (int, Batteries.Bigarray.int8_unsigned_elt, C_layout.t)
-            ExtBigarray.Genarray.t
+            (int, Bigarray.int8_unsigned_elt, C_layout.t)
+            Bigarray.Genarray.t
           val to_int16 :
             t ->
-            (int, Batteries.Bigarray.int16_signed_elt, C_layout.t)
-            ExtBigarray.Genarray.t
+            (int, Bigarray.int16_signed_elt, C_layout.t)
+            Bigarray.Genarray.t
           val to_uint16 :
             t ->
-            (int, Batteries.Bigarray.int16_unsigned_elt, C_layout.t)
-            ExtBigarray.Genarray.t
+            (int, Bigarray.int16_unsigned_elt, C_layout.t)
+            Bigarray.Genarray.t
           val to_int32 :
             t ->
-            (int32, Batteries.Bigarray.int32_elt, C_layout.t)
-            ExtBigarray.Genarray.t
+            (int32, Bigarray.int32_elt, C_layout.t)
+            Bigarray.Genarray.t
           val to_float32 :
             t ->
-            (float, Batteries.Bigarray.float32_elt, C_layout.t)
-            ExtBigarray.Genarray.t
+            (float, Bigarray.float32_elt, C_layout.t)
+            Bigarray.Genarray.t
           val to_float64 :
             t ->
-            (float, Batteries.Bigarray.float64_elt, C_layout.t)
-            ExtBigarray.Genarray.t
+            (float, Bigarray.float64_elt, C_layout.t)
+            Bigarray.Genarray.t
           val of_int8 :
-            (int, Batteries.Bigarray.int8_signed_elt, C_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (int, Bigarray.int8_signed_elt, C_layout.t)
+            Bigarray.Genarray.t -> t
           val of_uint8 :
-            (int, Batteries.Bigarray.int8_unsigned_elt, C_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (int, Bigarray.int8_unsigned_elt, C_layout.t)
+            Bigarray.Genarray.t -> t
           val of_int16 :
-            (int, Batteries.Bigarray.int16_signed_elt, C_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (int, Bigarray.int16_signed_elt, C_layout.t)
+            Bigarray.Genarray.t -> t
           val of_uint16 :
-            (int, Batteries.Bigarray.int16_unsigned_elt, C_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (int, Bigarray.int16_unsigned_elt, C_layout.t)
+            Bigarray.Genarray.t -> t
           val of_int32 :
-            (int32, Batteries.Bigarray.int32_elt, C_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (int32, Bigarray.int32_elt, C_layout.t)
+            Bigarray.Genarray.t -> t
           val of_float32 :
-            (float, Batteries.Bigarray.float32_elt, C_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (float, Bigarray.float32_elt, C_layout.t)
+            Bigarray.Genarray.t -> t
           val of_float64 :
-            (float, Batteries.Bigarray.float64_elt, C_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (float, Bigarray.float64_elt, C_layout.t)
+            Bigarray.Genarray.t -> t
           val is_hdf : string -> bool
           external hdf_datatype_to_mlvariant : int32 -> data_t
             = "hdf_datatype_to_mlvariant"
@@ -925,8 +925,8 @@ module C :
         int32 ->
         hdf_vdata_pack_action_t ->
         string ->
-        (int, Batteries.Bigarray.int8_unsigned_elt, C_layout.t)
-        Batteries.Bigarray.Genarray.t ->
+        (int, Bigarray.int8_unsigned_elt, C_layout.t)
+        Bigarray.Genarray.t ->
         int -> int -> string -> Hdf4.t array -> unit = "ml_VSfpack_bytecode"
         "ml_VSfpack"
       module Attribute :
@@ -972,7 +972,7 @@ module C :
             ?index:int ->
             ?subset:(int * int) option list ->
             ('a, 'b) Bigarray.kind ->
-            Hdf4.interface -> ('a, 'b, C_layout.t) ExtBigarray.Genarray.t
+            Hdf4.interface -> ('a, 'b, C_layout.t) Bigarray.Genarray.t
           val read :
             ?name:string ->
             ?index:int ->
@@ -1016,8 +1016,8 @@ module C :
           val pack_fields :
             int32 ->
             Field.t Smap.t ->
-            (int, Batteries.Bigarray.int8_unsigned_elt, C_layout.t)
-            ExtBigarray.Genarray.t
+            (int, Bigarray.int8_unsigned_elt, C_layout.t)
+            Bigarray.Genarray.t
           val write : Hdf4.interface -> t -> unit
         end
     end
@@ -1059,76 +1059,76 @@ module Fortran :
           type t =
             Make(Fortran_layout)(Smap).Hdf4.t =
               Int8 of
-                (int, Batteries.Bigarray.int8_signed_elt, Fortran_layout.t)
-                ExtBigarray.Genarray.t
+                (int, Bigarray.int8_signed_elt, Fortran_layout.t)
+                Bigarray.Genarray.t
             | UInt8 of
-                (int, Batteries.Bigarray.int8_unsigned_elt, Fortran_layout.t)
-                ExtBigarray.Genarray.t
+                (int, Bigarray.int8_unsigned_elt, Fortran_layout.t)
+                Bigarray.Genarray.t
             | Int16 of
-                (int, Batteries.Bigarray.int16_signed_elt, Fortran_layout.t)
-                ExtBigarray.Genarray.t
+                (int, Bigarray.int16_signed_elt, Fortran_layout.t)
+                Bigarray.Genarray.t
             | UInt16 of
-                (int, Batteries.Bigarray.int16_unsigned_elt, Fortran_layout.t)
-                ExtBigarray.Genarray.t
+                (int, Bigarray.int16_unsigned_elt, Fortran_layout.t)
+                Bigarray.Genarray.t
             | Int32 of
-                (int32, Batteries.Bigarray.int32_elt, Fortran_layout.t)
-                ExtBigarray.Genarray.t
+                (int32, Bigarray.int32_elt, Fortran_layout.t)
+                Bigarray.Genarray.t
             | Float32 of
-                (float, Batteries.Bigarray.float32_elt, Fortran_layout.t)
-                ExtBigarray.Genarray.t
+                (float, Bigarray.float32_elt, Fortran_layout.t)
+                Bigarray.Genarray.t
             | Float64 of
-                (float, Batteries.Bigarray.float64_elt, Fortran_layout.t)
-                ExtBigarray.Genarray.t
+                (float, Bigarray.float64_elt, Fortran_layout.t)
+                Bigarray.Genarray.t
           val create : data_t -> int array -> t
           val to_int8 :
             t ->
-            (int, Batteries.Bigarray.int8_signed_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t
+            (int, Bigarray.int8_signed_elt, Fortran_layout.t)
+            Bigarray.Genarray.t
           val to_uint8 :
             t ->
-            (int, Batteries.Bigarray.int8_unsigned_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t
+            (int, Bigarray.int8_unsigned_elt, Fortran_layout.t)
+            Bigarray.Genarray.t
           val to_int16 :
             t ->
-            (int, Batteries.Bigarray.int16_signed_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t
+            (int, Bigarray.int16_signed_elt, Fortran_layout.t)
+            Bigarray.Genarray.t
           val to_uint16 :
             t ->
-            (int, Batteries.Bigarray.int16_unsigned_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t
+            (int, Bigarray.int16_unsigned_elt, Fortran_layout.t)
+            Bigarray.Genarray.t
           val to_int32 :
             t ->
-            (int32, Batteries.Bigarray.int32_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t
+            (int32, Bigarray.int32_elt, Fortran_layout.t)
+            Bigarray.Genarray.t
           val to_float32 :
             t ->
-            (float, Batteries.Bigarray.float32_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t
+            (float, Bigarray.float32_elt, Fortran_layout.t)
+            Bigarray.Genarray.t
           val to_float64 :
             t ->
-            (float, Batteries.Bigarray.float64_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t
+            (float, Bigarray.float64_elt, Fortran_layout.t)
+            Bigarray.Genarray.t
           val of_int8 :
-            (int, Batteries.Bigarray.int8_signed_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (int, Bigarray.int8_signed_elt, Fortran_layout.t)
+            Bigarray.Genarray.t -> t
           val of_uint8 :
-            (int, Batteries.Bigarray.int8_unsigned_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (int, Bigarray.int8_unsigned_elt, Fortran_layout.t)
+            Bigarray.Genarray.t -> t
           val of_int16 :
-            (int, Batteries.Bigarray.int16_signed_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (int, Bigarray.int16_signed_elt, Fortran_layout.t)
+            Bigarray.Genarray.t -> t
           val of_uint16 :
-            (int, Batteries.Bigarray.int16_unsigned_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (int, Bigarray.int16_unsigned_elt, Fortran_layout.t)
+            Bigarray.Genarray.t -> t
           val of_int32 :
-            (int32, Batteries.Bigarray.int32_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (int32, Bigarray.int32_elt, Fortran_layout.t)
+            Bigarray.Genarray.t -> t
           val of_float32 :
-            (float, Batteries.Bigarray.float32_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (float, Bigarray.float32_elt, Fortran_layout.t)
+            Bigarray.Genarray.t -> t
           val of_float64 :
-            (float, Batteries.Bigarray.float64_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t -> t
+            (float, Bigarray.float64_elt, Fortran_layout.t)
+            Bigarray.Genarray.t -> t
           val is_hdf : string -> bool
           external hdf_datatype_to_mlvariant : int32 -> data_t
             = "hdf_datatype_to_mlvariant"
@@ -1178,8 +1178,8 @@ module Fortran :
         int32 ->
         hdf_vdata_pack_action_t ->
         string ->
-        (int, Batteries.Bigarray.int8_unsigned_elt, Fortran_layout.t)
-        Batteries.Bigarray.Genarray.t ->
+        (int, Bigarray.int8_unsigned_elt, Fortran_layout.t)
+        Bigarray.Genarray.t ->
         int -> int -> string -> Hdf4.t array -> unit = "ml_VSfpack_bytecode"
         "ml_VSfpack"
       module Attribute :
@@ -1225,7 +1225,7 @@ module Fortran :
             ?index:int ->
             ?subset:(int * int) option list ->
             ('a, 'b) Bigarray.kind ->
-            Hdf4.interface -> ('a, 'b, Fortran_layout.t) ExtBigarray.Genarray.t
+            Hdf4.interface -> ('a, 'b, Fortran_layout.t) Bigarray.Genarray.t
           val read :
             ?name:string ->
             ?index:int ->
@@ -1269,8 +1269,8 @@ module Fortran :
           val pack_fields :
             int32 ->
             Field.t Smap.t ->
-            (int, Batteries.Bigarray.int8_unsigned_elt, Fortran_layout.t)
-            ExtBigarray.Genarray.t
+            (int, Bigarray.int8_unsigned_elt, Fortran_layout.t)
+            Bigarray.Genarray.t
           val write : Hdf4.interface -> t -> unit
         end
     end
