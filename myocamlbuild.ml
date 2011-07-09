@@ -34,7 +34,7 @@ let camlidl_lib_dir = get_env_elem "CAMLIDL_LIB_DIR"
 let other_cflags = get_env_elem "CFLAGS"
 
 (* ocamlfind packages required for compilation *)
-let packages = "batteries extbigarray pcre"
+let packages = "batteries pcre"
 
 (* Build an appropriate ocamlfind command line *)
 let ocamlfind cmd cc =

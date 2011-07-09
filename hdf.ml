@@ -2,7 +2,11 @@
 
 open Batteries
 open Bigarray
-open ExtBigarray
+
+module Genarray = struct
+  include Genarray
+  include ExtGenarray
+end
 
 (** Local support functions *)
 

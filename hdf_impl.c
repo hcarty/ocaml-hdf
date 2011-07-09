@@ -622,3 +622,118 @@ value ml_SDsetfillvalue_int32(value sdsid, value fill) {
 
 //    intn SDsetrange
 //        (int32 sdsid, void * pmax, void * pmin);
+
+//
+//
+// Some extra, low-level Bigarray support functions
+// Originally from ExtBigarray, but there are only two required so they are
+// included here to limit dependencies.
+//
+//
+
+// Return size (in bytes) of an element of a Bigarray.
+// Only works for types fixed across platforms, so no nativeint
+// or camlint support.
+value ml_ba_element_size_in_bytes(value ba) {
+    CAMLparam1(ba);
+
+    struct caml_bigarray * b = Bigarray_val(ba);
+    int size;
+    switch((b->flags) & BIGARRAY_KIND_MASK) {
+        default:
+            caml_invalid_argument("Unhandled Bigarray kind in ml_ba_element_size_in_bytes");
+        case BIGARRAY_FLOAT32:
+        case BIGARRAY_INT32:
+            size = 4;
+            break;
+        case BIGARRAY_FLOAT64:
+        case BIGARRAY_INT64:
+            size = 8;
+            break;
+        case BIGARRAY_SINT8:
+        case BIGARRAY_UINT8:
+            size = 1;
+            break;
+        case BIGARRAY_SINT16:
+        case BIGARRAY_UINT16:
+            size = 2;
+            break;
+    }
+
+    CAMLreturn( Val_int(size) );
+}
+
+// Cast a Bigarray of one type to another.
+// This is a cast over the same bytes, so, for example,
+// n uint8 elements -> (n / 4) float32 elements.
+// Unlike map which gives n -> n.
+// This should REALLY only be used if absolutely needed.
+
+// A handy little macro to avoid some copy+paste
+#define MAKE_CAST_FUNC(TYPE)\
+void _cast_ ## TYPE(struct caml_bigarray* bs, struct caml_bigarray* bt, int elements) {\
+    int i;\
+    TYPE * source = (TYPE *)bs->data;\
+    TYPE * target = (TYPE *)bt->data;\
+    for (i = 0; i < elements; i++) {\
+        *target = *source;\
+        source++;\
+        target++;\
+    }\
+\
+    return;\
+}\
+
+MAKE_CAST_FUNC(int8)
+MAKE_CAST_FUNC(uint8)
+MAKE_CAST_FUNC(int16)
+MAKE_CAST_FUNC(uint16)
+MAKE_CAST_FUNC(int32)
+MAKE_CAST_FUNC(int64)
+MAKE_CAST_FUNC(float)
+MAKE_CAST_FUNC(double)
+
+value ml_ba_cast(value ba_source, value ba_target) {
+    CAMLparam2(ba_source, ba_target);
+
+    struct caml_bigarray * bs = Bigarray_val(ba_source);
+    struct caml_bigarray * bt = Bigarray_val(ba_target);
+
+    // Loop over all bs elements, applying the function to each and
+    // set the corresponding bt value.
+    int source_elems = Int_val( ml_ba_elems(ba_source) );
+    int source_size = Int_val( ml_ba_element_size_in_bytes(ba_source) )
+        * source_elems;
+    int target_elems = Int_val( ml_ba_elems(ba_target) );
+    int target_size = Int_val( ml_ba_element_size_in_bytes(ba_target) )
+        * target_elems;
+    if ( source_size != target_size ) {
+        // Throw an exception if the dims don't match.
+        char exception_message[MAX_EXCEPTION_MESSAGE_LENGTH];
+        sprintf(exception_message, "ml_ba_cast: Memory size mismatch");
+        caml_invalid_argument(exception_message);
+    }
+#define DO_CAST(TYPE) _cast_ ## TYPE(bs, bt, target_elems); break;
+    switch ((bt->flags) & BIGARRAY_KIND_MASK) {
+        default:
+            caml_invalid_argument("Unhandled Bigarray kind in ml_ba_cast");
+        case BIGARRAY_FLOAT32:
+            DO_CAST(float)
+        case BIGARRAY_FLOAT64:
+            DO_CAST(double)
+        case BIGARRAY_SINT8:
+            DO_CAST(int8)
+        case BIGARRAY_UINT8:
+            DO_CAST(uint8)
+        case BIGARRAY_SINT16:
+            DO_CAST(int16)
+        case BIGARRAY_UINT16:
+            DO_CAST(uint16)
+        case BIGARRAY_INT32:
+            DO_CAST(int32)
+        case BIGARRAY_INT64:
+            DO_CAST(int64)
+    }
+
+    CAMLreturn( Val_unit );
+}
