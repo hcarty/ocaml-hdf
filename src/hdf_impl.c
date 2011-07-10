@@ -631,6 +631,21 @@ value ml_SDsetfillvalue_int32(value sdsid, value fill) {
 //
 //
 
+// Find the total number of elements in a Bigarray
+value ml_ba_elems(value ba) {
+    CAMLparam1(ba);
+
+    struct caml_bigarray * b = Bigarray_val(ba);
+    int dims;
+    dims = b->num_dims;
+    int i;
+    int elems = 1;
+    for (i = 0; i < dims; i++) {
+        elems = elems * b->dim[i];
+    }
+    CAMLreturn(Val_int(elems));
+}
+
 // Return size (in bytes) of an element of a Bigarray.
 // Only works for types fixed across platforms, so no nativeint
 // or camlint support.
