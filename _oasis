@@ -1,0 +1,20 @@
+OASISFormat: 0.2
+Name:        ocaml-hdf
+Version:     4.2r1~beta1
+Synopsis:    Bindings for the HDF4 library
+Authors:     Hezekiah M. Carty
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     DevFiles (0.2), META (0.2), StdFiles (0.2)
+
+Library hdf
+  BuildTools:       ocamlbuild, h4cc
+  BuildDepends:     batteries, pcre
+  Path:             src
+  Modules:          Hdf
+  InternalModules:  Hdf_wrapper, ExtGenarray
+  CSources:         idlalloc.c,camlidlruntime.h,hdf_impl.c,hdf_wrapper.h,hdf_wrapper_stubs.c
+  XMETAType:        library
+  XMETARequires:    batteries, pcre
+  XMETADescription: Bindings for the HDF4 API
+  FindlibName:      hdf4
+
