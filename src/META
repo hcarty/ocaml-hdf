@@ -1,0 +1,10 @@
+# OASIS_START
+# DO NOT EDIT (digest: a446007ce0136976c997a9917825a6af)
+version = "4.2r1~beta1"
+description = "Bindings for the HDF4 API"
+requires = "batteries pcre"
+archive(byte) = "hdf.cma"
+archive(native) = "hdf.cmxa"
+exists_if = "hdf.cma"
+# OASIS_STOP
+
