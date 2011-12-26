@@ -523,6 +523,7 @@ module type Mappable = sig
   val iter : (key -> 'a -> unit) -> 'a t -> unit
   val keys : 'a t -> key Batteries.Enum.t
   val values : 'a t -> 'a Batteries.Enum.t
+  val find : key -> 'a t -> 'a option
 end
 module Make :
   functor (Layout : HDF4_LAYOUT_TYPE) ->
@@ -727,6 +728,10 @@ module Make :
               ?index:int ->
               ?subset:(int * int) option list -> Hdf4.interface -> t
             val read_all : Hdf4.interface -> t Smap.t
+            val unpack :
+              t ->
+              (float, 'a) Bigarray.kind ->
+              (float, 'a, Layout.t) Bigarray.Genarray.t
             val create : Hdf4.interface -> t -> int32
             val write_data : int32 -> Hdf4.t -> unit
             val write : Hdf4.interface -> t -> unit
@@ -978,6 +983,10 @@ module C :
             ?index:int ->
             ?subset:(int * int) option list -> Hdf4.interface -> t
           val read_all : Hdf4.interface -> t Smap.t
+          val unpack :
+            t ->
+            (float, 'a) Bigarray.kind ->
+            (float, 'a, C_layout.t) Bigarray.Genarray.t
           val create : Hdf4.interface -> t -> int32
           val write_data : int32 -> Hdf4.t -> unit
           val write : Hdf4.interface -> t -> unit
@@ -1231,6 +1240,10 @@ module Fortran :
             ?index:int ->
             ?subset:(int * int) option list -> Hdf4.interface -> t
           val read_all : Hdf4.interface -> t Smap.t
+          val unpack :
+            t ->
+            (float, 'a) Bigarray.kind ->
+            (float, 'a, Fortran_layout.t) Bigarray.Genarray.t
           val create : Hdf4.interface -> t -> int32
           val write_data : int32 -> Hdf4.t -> unit
           val write : Hdf4.interface -> t -> unit

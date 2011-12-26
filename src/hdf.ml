@@ -137,6 +137,7 @@ module type Mappable = sig
   val iter : (key -> 'a -> unit) -> 'a t -> unit
   val keys : 'a t -> key Enum.t
   val values : 'a t -> 'a Enum.t
+  val find : key -> 'a t -> 'a option
 end
 
 (** A complete set of HDF4 modules, parameterized by the underlying
@@ -767,6 +768,36 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
           let error_str = he_string (he_value 0l) in
           raise (Hdf4.HdfError error_str)
       | sds_id -> sds_id
+
+    (** [unpack sds kind] returns a function which can be used to unpack the
+        data in [sds] IF it has the appropriate attributes set
+        (["scale_factor"], ["add_offset"], ["missing_value"].  Any numbers
+        matching [missing_value] map to [nan], while all other value are
+        altered according to [scale_factor] and [add_offset].
+
+        Raises [Invalid_argument] if any of the required attributes are
+        missing. *)
+    let unpack sds kind =
+      let scale_factor =
+        Smap.find "scale_factor" sds.attributes
+        |> Option.map Attribute.get_float
+      in
+      let offset =
+        Smap.find "add_offset" sds.attributes
+        |> Option.map Attribute.get_float
+      in
+      let missing =
+        Smap.find "missing_value" sds.attributes
+        |> Option.map Attribute.get_int
+      in
+      match scale_factor, offset, missing with
+      | Some s, Some o, Some m ->
+          Hdf4.map_int
+            (fun x -> if x = m then nan else float_of_int x *. s +. o)
+            kind
+            sds.data
+      | _ ->
+          raise (Invalid_argument "Unable to find attributes for unpacking")
 
     (** [write_data sds_id data] creates an entry and writes [data] to the file
         referenced by [sds_id]. *)
