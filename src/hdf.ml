@@ -162,27 +162,42 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
     sig
       (* TODO: Try making the interface ids [int32 option] types,
          rather than indicating a missing interface with [-1l]. *)
-      type interface = private { sdid : int32; fid : int32 }
+      type interface = private { sdid : int32 option; fid : int32 option }
       val open_file : ?access:access_type -> string -> interface
       (* val from_int32s : int32 -> int32 -> interface *)
     end =
     struct
       (** HDF interfaces type *)
-      type interface = { sdid : int32; fid : int32 }
+      type interface = { sdid : int32 option; fid : int32 option }
 
       (** [open_file ?access filename] will open the HDF file [filename] with
           [access] permissions (default is [DFACC_READ].  This opens and starts
-          both the SDS and Vdata interfaces. *)
+          both the SDS and Vdata interfaces.
+
+          @raise Invalid_argument if [filename] fails to open. *)
       let open_file ?(access = DFACC_READ) filename =
         let sd_access =
           match access with
           | DFACC_CREATE -> DFACC_WRITE
           | x -> x
         in
-        let fid = h_open filename access 0 in
-        v_start fid;
-        let sdid = sd_start filename sd_access in
-        { sdid = sdid; fid = fid }
+        let fid =
+          match h_open filename access 0 with
+          | -1l -> None
+          | i ->
+              v_start i;
+              Some i
+        in
+        let sdid =
+          match sd_start filename sd_access with
+          | -1l -> None
+          | i -> Some i
+        in
+        (* At least one of the interfaces must be available in order to
+           provide a useful result. *)
+        match fid, sdid with
+        | None, None -> invalid_arg filename
+        | _ -> { sdid = sdid; fid = fid }
 
       (** This is a work around - it is not currently used, and probably
           should not be used at all. *)
@@ -194,12 +209,8 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
     (** [close_file interface] closes an HDF file opened with [open_file] *)
     let close_file interface =
       (* Only close the interface IF it is actually open *)
-      let if_open f = function
-        | -1l -> ()
-        | i -> f i
-      in
-      if_open sd_end interface.sdid;
-      if_open (
+      Option.may sd_end interface.sdid;
+      Option.may (
         fun i ->
           v_end i;
           h_close i;
@@ -559,6 +570,11 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
   module Sd = struct
     open Hdf4
 
+    let check_interface i =
+      match i.sdid with
+      | None -> invalid_arg "Uninitialized interface"
+      | Some x -> x
+
     type fill_value_t =
       | Int_fill of int
       | Float_fill of float
@@ -593,14 +609,15 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
         Raises [Invalid_argument "select"] if both or neither [name] and
         [index] are provided. *)
     let select ?name ?index interface =
+      let sdid = check_interface interface in
       let i =
         match name, index with
         | None, None
         | Some _, Some _ -> raise (Invalid_argument "select")
-        | Some n, None -> sd_nametoindex interface.sdid n
+        | Some n, None -> sd_nametoindex sdid n
         | None, Some i -> Int32.of_int i
       in
-      sd_select interface.sdid i
+      sd_select sdid i
 
     (** [info sds_id] can be used when a SDS is already selected. *)
     let info sds_id =
@@ -748,7 +765,8 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
     (** [read_all interface] returns a {!Smap.t} of the SDS contents of
         [interface]. *)
     let read_all interface =
-      let (num_sds, _) = sd_fileinfo interface.sdid in
+      let sdid = check_interface interface in
+      let (num_sds, _) = sd_fileinfo sdid in
       let sds =
         Array.init
           (Int32.to_int num_sds)
@@ -759,8 +777,9 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
       |> Smap.of_enum
 
     let create interface data =
+      let sdid = check_interface interface in
       match
-        sd_create interface.Hdf4.sdid data.name
+        sd_create sdid data.name
           (Hdf4.mlvariant_to_hdf_datatype data.data_type)
           (Array.map Int32.of_int (Hdf4.dims data.data))
       with
@@ -828,6 +847,11 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
   module Vdata =
   struct
     open Hdf4
+
+    let check_interface i =
+      match i.fid with
+      | None -> invalid_arg "Uninitialized interface"
+      | Some x -> x
 
     module Field = struct
       type t = {
@@ -1023,8 +1047,9 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
     (** [ref_from_index interface index] gets the Vdata ref associated with the
         [index]'th Vdata entry. *)
     let ref_from_index interface index =
+      let fid = check_interface interface in
       let rec f i vdata_ref =
-        let new_ref = vs_getid interface.fid vdata_ref in
+        let new_ref = vs_getid fid vdata_ref in
         if i = index then
           new_ref
         else
@@ -1039,16 +1064,17 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
     (** [read ?name ?index interface] reads the Vdata identified by [name] or by
         [index]. *)
     let read ?name ?index interface =
+      let fid = check_interface interface in
       let vdata_id =
         let vdata_ref =
           match name, index with
           | None, None
           | Some _, Some _ ->
               raise (Invalid_argument "Vdata.read needs a name OR an index")
-          | Some n, None -> vs_find interface.fid n
+          | Some n, None -> vs_find fid n
           | None, Some i -> ref_from_index interface i
         in
-        vs_attach interface.fid vdata_ref "r"
+        vs_attach fid vdata_ref "r"
       in
       let vdata = read_by_id vdata_id in
       (* Detach when we are done reading. *)
@@ -1062,15 +1088,16 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
         meant to be used in the [read_all] function below but may have other
         uses. *)
     let map f interface =
+      let fid = check_interface interface in
       let rec loop accu vdata_ref =
-        match vs_attach interface.fid vdata_ref "r" with
+        match vs_attach fid vdata_ref "r" with
         | -1l -> List.rev accu
         | vdata_id ->
             let result = f vdata_id in
             vs_detach vdata_id;
-            loop (result :: accu) (vs_getid interface.fid vdata_ref)
+            loop (result :: accu) (vs_getid fid vdata_ref)
       in
-      Array.of_list (loop [] (vs_getid interface.fid (-1l)))
+      Array.of_list (loop [] (vs_getid fid (-1l)))
 
     (** [read_all interface] will return an array of Vdata, one for each
         Vdata in [interface].  The data in the returned array are in the same
@@ -1122,7 +1149,8 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
     (** [write interface data] will write out the Vdata given in [data] to a new
         Vdata entry in [interface]. *)
     let write interface data =
-      let vdata_id = vs_attach interface.fid (-1l) "w" in
+      let fid = check_interface interface in
+      let vdata_id = vs_attach fid (-1l) "w" in
       (* Make a Vdata-ready, comma-delimited string of the field names *)
       let field_names =
         let names = List.of_enum (Smap.keys data.fields) in
@@ -1182,3 +1210,15 @@ end
 
 module C = Make(C_layout)
 module Fortran = Make(Fortran_layout)
+
+(** An easy/ready-to-use HDF4 module *)
+module Easy = struct
+  module Hdf4_map = struct
+    include Map.StringMap
+    include Exceptionless
+    include Infix
+  end
+
+  module Hdf4c = C(Hdf4_map)
+  module Hdf4f = Fortran(Hdf4_map)
+end

@@ -540,16 +540,9 @@ module Make :
                 | `uint16
                 | `uint8 ]
             exception HdfError of string
-            module Private :
-              sig
-                type interface = private { sdid : int32; fid : int32; }
-                val open_file :
-                  ?access:Hdf4_low_level.access_type -> string -> interface
-              end
-            type interface =
-              Private.interface = private {
-              sdid : int32;
-              fid : int32;
+            type interface = private {
+              sdid : int32 option;
+              fid : int32 option;
             }
             val open_file :
               ?access:Hdf4_low_level.access_type -> string -> interface
@@ -789,18 +782,16 @@ module C :
           exception HdfError of string
           module Private :
             sig
-              type interface =
-                Make(C_layout)(Smap).Hdf4.Private.interface = private {
-                sdid : int32;
-                fid : int32;
+              type interface = Make(C_layout)(Smap).Hdf4.interface = private {
+                sdid : int32 option;
+                fid : int32 option;
               }
               val open_file :
                 ?access:Hdf4_low_level.access_type -> string -> interface
             end
-          type interface =
-            Make(C_layout)(Smap).Hdf4.interface = private {
-            sdid : int32;
-            fid : int32;
+          type interface = Make(C_layout)(Smap).Hdf4.interface = private {
+            sdid : int32 option;
+            fid : int32 option;
           }
           val open_file :
             ?access:Hdf4_low_level.access_type -> string -> interface
@@ -1047,17 +1038,17 @@ module Fortran :
           module Private :
             sig
               type interface =
-                Make(Fortran_layout)(Smap).Hdf4.Private.interface = private {
-                sdid : int32;
-                fid : int32;
+                Make(Fortran_layout)(Smap).Hdf4.interface = private {
+                  sdid : int32 option;
+                  fid : int32 option;
               }
               val open_file :
                 ?access:Hdf4_low_level.access_type -> string -> interface
             end
           type interface =
             Make(Fortran_layout)(Smap).Hdf4.interface = private {
-            sdid : int32;
-            fid : int32;
+              sdid : int32 option;
+              fid : int32 option;
           }
           val open_file :
             ?access:Hdf4_low_level.access_type -> string -> interface
