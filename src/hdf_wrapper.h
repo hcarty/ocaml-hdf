@@ -102,6 +102,7 @@ DFNT_LUCHAR16 = (16384 | 43),
 typedef enum {
 DFACC_READ = 1,
 DFACC_WRITE = 2,
+DFACC_RDWR = 3,
 DFACC_CREATE = 4,
 } access_type;
 

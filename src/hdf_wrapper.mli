@@ -76,6 +76,7 @@ and hdf_data_type = enum_1
 and enum_2 =
   | DFACC_READ
   | DFACC_WRITE
+  | DFACC_RDWR
   | DFACC_CREATE
 and access_type = enum_2
 and enum_3 =

@@ -87,7 +87,7 @@ module Hdf4_low_level :
       | DFNT_LCHAR16
       | DFNT_LUCHAR16
     and hdf_data_type = enum_1
-    and enum_2 = Hdf_wrapper.enum_2 = DFACC_READ | DFACC_WRITE | DFACC_CREATE
+    and enum_2 = Hdf_wrapper.enum_2 = DFACC_READ | DFACC_WRITE | DFACC_RDWR | DFACC_CREATE
     and access_type = enum_2
     and enum_3 =
       Hdf_wrapper.enum_3 =

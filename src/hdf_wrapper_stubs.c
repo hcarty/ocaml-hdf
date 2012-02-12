@@ -250,9 +250,10 @@ value _v1;
   return _v1;
 }
 
-int camlidl_transl_table_hdf_wrapper_enum_2[3] = {
+int camlidl_transl_table_hdf_wrapper_enum_2[4] = {
   DFACC_READ,
   DFACC_WRITE,
+  DFACC_RDWR,
   DFACC_CREATE,
 };
 
@@ -267,7 +268,8 @@ value _v1;
   switch((*_c2)) {
   case DFACC_READ: _v1 = Val_int(0); break;
   case DFACC_WRITE: _v1 = Val_int(1); break;
-  case DFACC_CREATE: _v1 = Val_int(2); break;
+  case DFACC_RDWR: _v1 = Val_int(2); break;
+  case DFACC_CREATE: _v1 = Val_int(3); break;
   default: invalid_argument("typedef access_type: bad enum  value");
   }
   return _v1;
