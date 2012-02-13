@@ -127,7 +127,7 @@ module Hdf4_low_level = struct
     (name, rank, Array.sub dimsizes 0 (Int32.to_int rank), data_type, num_attrs)
 end
 
-module type Mappable = sig
+module type MAPPABLE = sig
   type key
   type 'a t
 
@@ -142,7 +142,7 @@ end
 
 (** A complete set of HDF4 modules, parameterized by the underlying
     Bigarray layout (C or Fortran). *)
-module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable with type key = string) -> struct
+module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : MAPPABLE with type key = string) -> struct
   open Hdf4_low_level
 
   (** {6 Higher Level Functions} *)
@@ -1208,17 +1208,30 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : Mappable wi
   *)
 end
 
-module C = Make(C_layout)
-module Fortran = Make(Fortran_layout)
+(** An easy/ready-to-use batch of modules *)
 
-(** An easy/ready-to-use HDF4 module *)
-module Easy = struct
-  module Hdf4_map = struct
-    include Map.StringMap
-    include Exceptionless
-    include Infix
-  end
-
-  module Hdf4c = C(Hdf4_map)
-  module Hdf4f = Fortran(Hdf4_map)
+module Hdf4_map = struct
+  include Map.StringMap
+  include Exceptionless
+  include Infix
 end
+
+module Hdf4c = struct
+  module Map = Hdf4_map
+  module H = Make(C_layout)(Hdf4_map)
+  include H
+  include Hdf4
+end
+
+module Hdf4f = struct
+  module Map = Hdf4_map
+  module H = Make(Fortran_layout)(Hdf4_map)
+  include H
+  include Hdf4
+end
+
+module Easy = struct
+  module Hdf4c = Hdf4c
+  module Hdf4f = Hdf4f
+end
+
