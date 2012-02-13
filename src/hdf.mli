@@ -777,12 +777,14 @@ module Hdf4c : sig
   module Map : module type of Hdf4_map
   include module type of Make(C_layout)(Hdf4_map)
   include module type of Hdf4
+  module L : module type of Hdf4_low_level
 end
 
 module Hdf4f : sig
   module Map : module type of Hdf4_map
   include module type of Make(Fortran_layout)(Hdf4_map)
   include module type of Hdf4
+  module L : module type of Hdf4_low_level
 end
 
 module Easy : sig

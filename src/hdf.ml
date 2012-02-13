@@ -1221,6 +1221,7 @@ module Hdf4c = struct
   module H = Make(C_layout)(Hdf4_map)
   include H
   include Hdf4
+  module L = Hdf4_low_level
 end
 
 module Hdf4f = struct
@@ -1228,6 +1229,7 @@ module Hdf4f = struct
   module H = Make(Fortran_layout)(Hdf4_map)
   include H
   include Hdf4
+  module L = Hdf4_low_level
 end
 
 module Easy = struct
