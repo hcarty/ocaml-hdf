@@ -663,6 +663,25 @@ module Make :
             val fold_int : ('a -> int -> 'a) -> 'a -> t -> 'a
             val fold_int32 : ('a -> int32 -> 'a) -> 'a -> t -> 'a
             val fold_float : ('a -> float -> 'a) -> 'a -> t -> 'a
+
+            val to_int_array : t -> int array
+            val to_int32_array : t -> int32 array
+            val to_float_array : t -> float array
+            (** [to_*_array a] converts [a] to an appropriately typed OCaml
+                array. *)
+
+            val to_string : t -> string
+            val of_string : string -> t
+            (** Convert strings to/from {!t} values.
+                These functions use [char_of_int] and [int_of_char] internally
+                so they will only work with {!t} values containing integers
+                and only with ASCII characters. *)
+
+            val get_one_int : t -> int
+            val get_one_int32 : t -> int32
+            val get_one_float : t -> float
+            (** [get_one_* a] gets the first value from [a].  Mostly useful
+                when [a] is an attribute with only a single value. *)
           end
         type hdf_vdata_pack_action_t = HDF_VSPACK | HDF_VSUNPACK
         external vs_fpack :
@@ -673,16 +692,6 @@ module Make :
           Bigarray.Genarray.t ->
           int -> int -> string -> Hdf4.t array -> unit = "ml_VSfpack_bytecode"
           "ml_VSfpack"
-        module Attribute :
-          sig
-            type t = Hdf4.t
-            val to_int : Hdf4.t -> int array
-            val to_int32 : Hdf4.t -> int32 array
-            val to_float : Hdf4.t -> float array
-            val get_int : Hdf4.t -> int
-            val get_int32 : Hdf4.t -> int32
-            val get_float : Hdf4.t -> float
-          end
         module Sd :
           sig
             type fill_value_t =

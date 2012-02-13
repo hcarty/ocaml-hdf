@@ -535,6 +535,33 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : MAPPABLE wi
       | Float32 x -> Genarray.fold f initial x
       | Float64 x -> Genarray.fold f initial x
       | _ -> invalid_arg "fold_float"
+
+    (** [to_*_array a] converts [a] to an appropriately typed OCaml array. *)
+    let to_int_array a =
+      Array1.to_array (array1_of_genarray (map_int identity int a))
+    let to_int32_array a =
+      Array1.to_array (array1_of_genarray (map_int32 identity int32 a))
+    let to_float_array a =
+      Array1.to_array (array1_of_genarray (map_float identity float64 a))
+
+    (** [to_string a] converts [a] to a string by using [char_of_int] on each
+        element in [a]. *)
+    let to_string a =
+      let arr = to_int_array a in
+      String.init (Array.length arr) (fun i -> char_of_int arr.(i))
+
+    (** [of_string s] converts the string [s] to an [Hdf4.t]. *)
+    let of_string s =
+      let arr = Array.init (String.length s) (fun i -> int_of_char s.[i]) in
+      of_uint8 (
+        genarray_of_array1 (Array1.of_array int8_unsigned Layout.layout arr)
+      )
+
+    (** [get_one_* a] gets the first value from [a].  Mostly useful when [a] is an
+        attribute with only a single value. *)
+    let get_one_int a = get_int a [|0|]
+    let get_one_int32 a = get_int32 a [|0|]
+    let get_one_float a = get_float a [|0|]
   end
 
   type hdf_vdata_pack_action_t =
@@ -547,24 +574,6 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : MAPPABLE wi
     (int, Bigarray.int8_unsigned_elt, Layout.t) Bigarray.Genarray.t ->
     int -> int -> string -> Hdf4.t array -> unit
     = "ml_VSfpack_bytecode" "ml_VSfpack"
-
-  module Attribute = struct
-    type t = Hdf4.t
-
-    (** [to_* a] convert [a] to an appropriately typed OCaml array. *)
-    let to_int a =
-      Array1.to_array (array1_of_genarray (Hdf4.map_int identity int a))
-    let to_int32 a =
-      Array1.to_array (array1_of_genarray (Hdf4.map_int32 identity int32 a))
-    let to_float a =
-      Array1.to_array (array1_of_genarray (Hdf4.map_float identity float64 a))
-
-    (** [get_* a] gets the first value from [a].  Mostly useful when [a] is an
-        attribute with only a single value. *)
-    let get_int a = Hdf4.get_int a [|0|]
-    let get_int32 a = Hdf4.get_int32 a [|0|]
-    let get_float a = Hdf4.get_float a [|0|]
-  end
 
   (** {6 HDF4 SDS interface} *)
   module Sd = struct
@@ -799,15 +808,15 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : MAPPABLE wi
     let unpack sds kind =
       let scale_factor =
         Smap.find "scale_factor" sds.attributes
-        |> Option.map Attribute.get_float
+        |> Option.map get_one_float
       in
       let offset =
         Smap.find "add_offset" sds.attributes
-        |> Option.map Attribute.get_float
+        |> Option.map get_one_float
       in
       let missing =
         Smap.find "missing_value" sds.attributes
-        |> Option.map Attribute.get_int
+        |> Option.map get_one_int
       in
       match scale_factor, offset, missing with
       | Some s, Some o, Some m ->
