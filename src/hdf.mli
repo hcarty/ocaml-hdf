@@ -777,7 +777,7 @@ module Make :
       end
 
 module Hdf4_map : sig
-  include module type of Batteries.Map.StringMap
+  include Batteries.Map.S with type key = string
   include module type of Exceptionless
   include module type of Infix
 end

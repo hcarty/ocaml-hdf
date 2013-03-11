@@ -1220,7 +1220,7 @@ end
 (** An easy/ready-to-use batch of modules *)
 
 module Hdf4_map = struct
-  include Map.StringMap
+  include Map.Make(String)
   include Exceptionless
   include Infix
 end
