@@ -25,7 +25,15 @@ let hdf4_linkflags cclib =
       )
     )
   in
-  let is_linker_flag s = s.[0] = '-' && (s.[1] = 'l' || s.[1] = 'L') in
+  let is_linker_flag s =
+    (* Quite a dirty hack... *)
+    let length = String.length s in
+    length > 2 && (
+      (s.[0] = '-' && (s.[1] = 'l' || s.[1] = 'L')) ||
+      (s.[length - 1] = 'a' && s.[length - 2] = '.') ||
+      (s.[length - 1] = 'o' && s.[length - 2] = 's' && s.[length - 3] = '.')
+    )
+  in
   let flags = List.filter is_linker_flag all_elements in
   S (List.map (fun flag -> S [tag; A flag]) flags)
 ;;
