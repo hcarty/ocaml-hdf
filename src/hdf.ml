@@ -160,11 +160,8 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : MAPPABLE wi
         that an interface can not be manually created. *)
     module Private :
     sig
-      (* TODO: Try making the interface ids [int32 option] types,
-         rather than indicating a missing interface with [-1l]. *)
       type interface = private { sdid : int32 option; fid : int32 option }
       val open_file : ?access:access_type -> string -> interface
-      (* val from_int32s : int32 -> int32 -> interface *)
     end =
     struct
       (** HDF interfaces type *)
@@ -198,10 +195,6 @@ module Make = functor (Layout : HDF4_LAYOUT_TYPE) -> functor (Smap : MAPPABLE wi
         match fid, sdid with
         | None, None -> invalid_arg filename
         | _ -> { sdid = sdid; fid = fid }
-
-      (** This is a work around - it is not currently used, and probably
-          should not be used at all. *)
-      (* let from_int32s sdid fid = { sdid = sdid; fid = fid } *)
     end
 
     include Private
