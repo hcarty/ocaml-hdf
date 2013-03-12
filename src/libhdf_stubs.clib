@@ -1,0 +1,6 @@
+# OASIS_START
+# DO NOT EDIT (digest: f6ed56a9b2738c67cced9e9cde0ddb78)
+idlalloc.o
+hdf_impl.o
+hdf_wrapper_stubs.o
+# OASIS_STOP
