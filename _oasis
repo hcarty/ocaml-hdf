@@ -2,8 +2,14 @@ OASISFormat: 0.3
 Name:        ocaml-hdf
 Version:     0.9
 Synopsis:    Bindings for the HDF4 library
+Description: This library provides access to the HDF4 data reading and
+   writing library (http://www.hdfgroup.org/). It provides both direct,
+   low-level access to HDF4 library functions as well as a higher level,
+   more OCaml-like interface.
 Authors:     Hezekiah M. Carty
+Maintainers: Hezekiah M. Carty <hez@0ok.org>
 License:     LGPL-2.1 with OCaml linking exception
+Homepage:    https://github.com/hcarty/ocaml-hdf
 Plugins:     DevFiles (0.3), META (0.3), StdFiles (0.3)
 
 Library hdf
@@ -19,3 +25,8 @@ Library hdf
   FindlibName:      hdf4
   CompiledObject:   best
 
+
+SourceRepository master
+  Type:       git
+  Location:   https://github.com/hcarty/ocaml-hdf.git
+  Browser:    https://github.com/hcarty/ocaml-hdf
