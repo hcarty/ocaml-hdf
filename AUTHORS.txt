@@ -1,5 +1,8 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 066187ffa82a25454344bca6399a82f0) *)
-Authors of ocaml-hdf
+(* DO NOT EDIT (digest: 79ebc0c2995bc84098ca7924cb5ec9af) *)
+Authors of hdf
 Hezekiah M. Carty
+
+Current maintainers of hdf
+Hezekiah M. Carty <hez@0ok.org>
 (* OASIS_STOP *)

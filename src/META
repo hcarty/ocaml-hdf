@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 120efc61192e028329a0461ede67e45e)
-version = "0.9.0"
+# DO NOT EDIT (digest: 0edf07c6a4397587a6ad90516962bb7f)
+version = "0.9.1"
 description = "Bindings for the HDF4 API"
 requires = "batteries pcre"
 archive(byte) = "hdf.cma"
