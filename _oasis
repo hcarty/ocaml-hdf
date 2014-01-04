@@ -1,6 +1,6 @@
 OASISFormat: 0.3
 Name:        hdf
-Version:     0.9
+Version:     0.9.1
 Synopsis:    Bindings for the HDF4 library
 Description: This library provides access to the HDF4 data reading and
    writing library (http://www.hdfgroup.org/). It provides both direct,
