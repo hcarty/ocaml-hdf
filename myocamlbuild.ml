@@ -19,7 +19,7 @@ let blank_sep_strings = Ocamlbuild_pack.Lexers.blank_sep_strings;;
 let hdf4_linkflags cclib =
   let tag = if cclib then A "-cclib" else N in
   let all_elements =
-    blank_sep_strings (
+    blank_sep_strings cmd (
       Lexing.from_string (
         run_and_read (h4cc ^ " -show")
       )
